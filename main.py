@@ -23,14 +23,18 @@ def convert_time_to_seconds(time):
             return parts[0] * 60 + parts[1]
     return 0
 
-def pgn_to_csv(pgn_file, csv_file):
-    with open(pgn_file) as f, open(csv_file, mode="w", newline="") as csvfile:
+def pgn_to_csv(pgn_file, csv_file, openings_file):
+    openings_set = set()
+    
+    with open(pgn_file) as f, open(csv_file, mode="w", newline="") as csvfile, open(openings_file, mode="w", newline="") as openings_csv:
         fieldnames = ["Event", "Round", "White", "Black", "Result", "WhiteElo", "WhiteTitle", "WhiteFideId", 
-                      "BlackElo", "BlackTitle", "BlackFideId", "Variant", "ECO", "Opening", 
+                      "BlackElo", "BlackTitle", "BlackFideId", "ECO", 
                       "Move Number", "Move", "Color", "Evaluation", "Time", "Time (seconds)"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
         writer.writeheader()
+        
+        openings_writer = csv.DictWriter(openings_csv, fieldnames=["ECO", "Opening"])
+        openings_writer.writeheader()
 
         while True:
             game = chess.pgn.read_game(f)
@@ -39,6 +43,13 @@ def pgn_to_csv(pgn_file, csv_file):
 
             headers = game.headers
             board = game.board()
+
+            eco = headers.get("ECO", "")
+            opening = headers.get("Opening", "")
+            
+            if eco and opening and (eco, opening) not in openings_set:
+                openings_set.add((eco, opening))
+                openings_writer.writerow({"ECO": eco, "Opening": opening})
 
             white_move_number = 1
             black_move_number = 1
@@ -69,9 +80,7 @@ def pgn_to_csv(pgn_file, csv_file):
                     "BlackElo": headers.get("BlackElo", ""),
                     "BlackTitle": headers.get("BlackTitle", ""),
                     "BlackFideId": headers.get("BlackFideId", ""),
-                    "Variant": headers.get("Variant", ""),
-                    "ECO": headers.get("ECO", ""),
-                    "Opening": headers.get("Opening", ""),
+                    "ECO": eco,
                     "Move Number": move_number,
                     "Move": board.san(move_obj),
                     "Color": color,
@@ -85,7 +94,9 @@ def pgn_to_csv(pgn_file, csv_file):
                 board.push(move_obj)
 
     print(f"Archivo CSV '{csv_file}' generado correctamente.")
+    print(f"Archivo CSV '{openings_file}' generado correctamente.")
 
 pgn_file = "data/games.pgn"
 csv_file = "data/games.csv"
-pgn_to_csv(pgn_file, csv_file)
+openings_file = "data/openings.csv"
+pgn_to_csv(pgn_file, csv_file, openings_file)
