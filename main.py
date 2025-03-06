@@ -14,9 +14,9 @@ def extract_eval_and_time(comment):
 
     return evaluation, time
 
-def convertir_tiempo_a_segundos(tiempo):
-    if tiempo:
-        parts = list(map(int, tiempo.split(':')))
+def convert_time_to_seconds(time):
+    if time:
+        parts = list(map(int, time.split(':')))
         if len(parts) == 3:
             return parts[0] * 3600 + parts[1] * 60 + parts[2]
         elif len(parts) == 2:
@@ -46,7 +46,7 @@ def pgn_to_csv(pgn_file, csv_file):
             for i, move in enumerate(game.mainline()):
                 move_obj = move.move
                 evaluation, time = extract_eval_and_time(move.comment)
-                time_seconds = convertir_tiempo_a_segundos(time)
+                time_seconds = convert_time_to_seconds(time)
 
                 if i % 2 == 0:
                     color = "White"
