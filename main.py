@@ -14,11 +14,20 @@ def extract_eval_and_time(comment):
 
     return evaluation, time
 
+def convertir_tiempo_a_segundos(tiempo):
+    if tiempo:
+        parts = list(map(int, tiempo.split(':')))
+        if len(parts) == 3:
+            return parts[0] * 3600 + parts[1] * 60 + parts[2]
+        elif len(parts) == 2:
+            return parts[0] * 60 + parts[1]
+    return 0
+
 def pgn_to_csv(pgn_file, csv_file):
     with open(pgn_file) as f, open(csv_file, mode="w", newline="") as csvfile:
         fieldnames = ["Event", "Round", "White", "Black", "Result", "WhiteElo", "WhiteTitle", "WhiteFideId", 
                       "BlackElo", "BlackTitle", "BlackFideId", "Variant", "ECO", "Opening", 
-                      "Move Number", "Move", "Color", "Evaluation", "Time"]
+                      "Move Number", "Move", "Color", "Evaluation", "Time", "Time (seconds)"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         writer.writeheader()
@@ -37,8 +46,8 @@ def pgn_to_csv(pgn_file, csv_file):
             for i, move in enumerate(game.mainline()):
                 move_obj = move.move
                 evaluation, time = extract_eval_and_time(move.comment)
+                time_seconds = convertir_tiempo_a_segundos(time)
 
-                # Determinar el color del jugador y la numeración de la jugada
                 if i % 2 == 0:
                     color = "White"
                     move_number = white_move_number
@@ -48,7 +57,6 @@ def pgn_to_csv(pgn_file, csv_file):
                     move_number = black_move_number
                     black_move_number += 1
 
-                # Preparar la fila del CSV
                 row = {
                     "Event": headers.get("Event", ""),
                     "Round": headers.get("Round", ""),
@@ -68,7 +76,8 @@ def pgn_to_csv(pgn_file, csv_file):
                     "Move": board.san(move_obj),
                     "Color": color,
                     "Evaluation": evaluation,
-                    "Time": time
+                    "Time": time,
+                    "Time (seconds)": time_seconds
                 }
 
                 writer.writerow(row)
