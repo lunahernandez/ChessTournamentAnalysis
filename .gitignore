@@ -169,3 +169,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+data/openings.csv
+data/details.csv
+data/moves.csv
+data/players.csv
+
