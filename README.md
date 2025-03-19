@@ -14,6 +14,7 @@
 - white FK FideId
 - black FK FideId
 - ECO FK
+- result
 
 ## players.csv
 - name
