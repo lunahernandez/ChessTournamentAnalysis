@@ -34,7 +34,7 @@ def pgn_to_csv(pgn_file, moves_file, details_file, players_file, openings_file):
          open(openings_file, mode="w", newline="") as openings_csv:
 
         moves_writer = csv.DictWriter(moves_csv, fieldnames=["Round", "Move Number", "Move", "Color", "Evaluation", "Time", "Time (seconds)"])
-        details_writer = csv.DictWriter(details_csv, fieldnames=["Round", "Event", "White", "Black", "ECO"])
+        details_writer = csv.DictWriter(details_csv, fieldnames=["Round", "Event", "White", "Black", "ECO", "Result"])
         players_writer = csv.DictWriter(players_csv, fieldnames=["Name", "FideId", "Elo"])
         openings_writer = csv.DictWriter(openings_csv, fieldnames=["ECO", "Name"])
         
@@ -78,7 +78,8 @@ def pgn_to_csv(pgn_file, moves_file, details_file, players_file, openings_file):
                 "Event": headers.get("Event", ""),
                 "White": white_fide_id,
                 "Black": black_fide_id,
-                "ECO": eco
+                "ECO": eco,
+                "Result": headers.get("Result", "") 
             })
 
             move_number = 1
