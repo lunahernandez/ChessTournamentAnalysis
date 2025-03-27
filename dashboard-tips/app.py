@@ -20,7 +20,8 @@ app_dir = Path(__file__).parent
 players_df = pd.DataFrame(list(db["Players"].find()))
 details_df = pd.DataFrame(list(db["Details"].find()))
 openings_df = pd.DataFrame(list(db["Openings"].find()))
-
+moves_df = pd.DataFrame(list(db["Moves"].find()))
+moves_df = moves_df.merge(details_df[['Round', 'Event']], on='Round', how='left')
 players_df = players_df.drop_duplicates(subset=["FideId"])
 
 details_df = details_df.merge(players_df[['FideId', 'Name', 'Elo']], left_on="White", right_on="FideId")
@@ -227,6 +228,109 @@ def get_player_info(player_name):
 
 
 
+def engine_evaluation(round_number, show_colors=True):
+    game_moves = moves_df[moves_df["Round"] == round_number].copy()
+    if game_moves.empty:
+        return go.Figure()
+
+    # Ordenar movimientos para que primero estén las blancas y luego las negras
+    game_moves["Color Order"] = game_moves["Color"].map({"White": 0, "Black": 1})
+    game_moves = game_moves.sort_values(by=["Move Number", "Color Order"]).drop(columns=["Color Order"])
+    game_moves["Adjusted Move Number"] = game_moves["Move Number"] + game_moves["Color"].map({"White": 0, "Black": 0.5})
+
+    move_numbers = game_moves["Adjusted Move Number"]
+    evaluations = game_moves["Evaluation"]
+
+    # Función para categorizar la evaluación y determinar ventaja
+    def categorize_eval(eval_value):
+        if eval_value >= 1.6:
+            return "Decisiva Mejor", "white"
+        elif eval_value >= 0.7:
+            return "Clara Mejor", "white"
+        elif eval_value >= 0.3:
+            return "Ligera Mejor", "white"
+        elif eval_value > -0.3:
+            return "Igualdad", "gray"
+        elif eval_value >= -0.69:
+            return "Ligera Peor", "black"
+        elif eval_value >= -1.59:
+            return "Clara Peor", "black"
+        else:
+            return "Decisiva Peor", "black"
+
+    # Aplicar categorización a cada jugada
+    game_moves[["Evaluation Category", "Advantage Color"]] = game_moves["Evaluation"].apply(lambda x: pd.Series(categorize_eval(x)))
+
+
+    fig = go.Figure()
+
+    # Línea de evaluación con tooltip y colores según ventaja
+    fig.add_trace(go.Scatter(
+        x=move_numbers,
+        y=evaluations,
+        mode='lines+markers',
+        line=dict(color='gray', width=2),
+        marker=dict(size=8, color=game_moves["Advantage Color"], line=dict(width=1, color='black')),
+        name="",
+        hovertemplate="<b>Jugada:</b> %{x}<br>"
+                      "<b>Evaluación:</b> %{y}<br>"
+                      "<b>Estado:</b> %{customdata[0]}<br>"
+                      "<b>Jugador:</b> %{customdata[1]}",
+        customdata=list(zip(game_moves["Evaluation Category"], game_moves["Color"])),  # Estado y jugador en tooltip
+        showlegend=False
+    ))
+
+    # Línea de referencia en 0 (equilibrio)
+    fig.add_shape(
+        type="line", x0=0, x1=max(move_numbers), y0=0, y1=0,
+        line=dict(color="black", width=2, dash="dash")
+    )
+
+    fig.update_layout(
+        xaxis_title="Número de Jugada",
+        yaxis_title="Evaluación",
+        template="ggplot2",
+        legend_title="Estado de la Evaluación"
+    )
+
+    return fig
+
+
+
+def plot_player_times(round_number):
+    game_moves = moves_df[moves_df["Round"] == round_number].copy()
+
+    # Asignar colores personalizados (Blancas = Blanco, Negras = Negro)
+    color_map = {"White": "white", "Black": "black"}
+
+    fig = px.line(
+        game_moves,
+        x="Move Number",
+        y="Time (seconds)",
+        color="Color",
+        color_discrete_map=color_map,  # Aplicar colores personalizados
+        markers=True,
+        labels={"Time (seconds)": "Tiempo (segundos)", "Move Number": "Número de Jugada", "Color": "Jugador"},
+    )
+
+    # Actualizar los puntos con borde negro
+    fig.update_traces(
+        marker=dict(
+            size=8,
+            line=dict(width=2, color="black")  # Borde negro con ancho de 2
+        )
+    )
+    
+    fig.update_layout(
+        showlegend=False,  # Ocultar leyenda
+        xaxis=dict(showgrid=True),
+        yaxis=dict(showgrid=True, tickformat="%M:%S"),  # Formato min:seg
+        template="ggplot2"
+    )
+
+    return fig
+
+
 
 ICONS = {
     "user": fa.icon_svg("user", "regular"),
@@ -278,7 +382,55 @@ app_ui = ui.page_fluid(
                     )
                 ),
             ),
+        ),        
+ ui.nav_panel("Partidas",  
+    ui.page_sidebar(
+        ui.sidebar(
+            ui.input_select("selected_game", "Selecciona una partida:", 
+                            {game: game for game in details_df["Event"].tolist()}),
+            
+            ui.card(
+                ui.card_header(ui.row([
+                    ui.column(10, [
+                        ui.HTML(f"{fa.icon_svg('user', 'solid')} Jugador Blanco")
+                    ]), 
+                    ui.column(2, [
+                        ui.output_ui("white_player_result")  # Mostramos el resultado para el jugador blanco aquí
+                    ])
+                ])),
+                ui.card_body(ui.output_ui("white_player_info")),
+                style="background-color: white; color: black;"  # Caja blanca para el jugador blanco
+            ),
+
+            
+            # Tarjeta para el Jugador Negro (fondo negro y texto blanco)
+            ui.card(
+            ui.card_header(ui.row([
+                ui.column(10, [
+                    ui.HTML(f"{fa.icon_svg('user', 'solid')} Jugador Negro")
+                ]), 
+                ui.column(2, [
+                    ui.output_ui("black_player_result")  # Mostramos el resultado para el jugador blanco aquí
+                ])
+            ])),
+            ui.card_body(ui.output_ui("black_player_info")),
+            style="background-color: black; color: white;"  # Caja blanca para el jugador blanco
         ),
+            
+            open="desktop",
+        ),
+        ui.card(
+            ui.card_header("Evaluación del Motor por Jugada"),
+            ui.output_ui("output_graph5"), full_screen=True
+        ),
+        ui.card(
+            ui.card_header("Tiempo Consumido por Jugada"),
+            ui.output_ui("output_graph6"), full_screen=True
+        )
+    ),
+)
+
+
     ),
     ui.include_css(app_dir / "styles.css"),
     title="Chess Tournament Analysis | Cerrado IM Barcelona Junio 2024",
@@ -312,7 +464,27 @@ def server(input, output, session):
             ui.card_header(ui.HTML(f"{fa.icon_svg('id-card')} FIDE ID")),
             ui.card_body(ui.p(str(fide_id)))
         )
-    
+    @output
+    @render.text
+    def white_player_info():
+        game_details = details_df[details_df["Event"] == input.selected_game()]
+        if game_details.empty:
+            return "No disponible"
+        player_name = game_details["White_Player"].values[0]
+        elo = game_details["White_Elo"].values[0]
+        fide_id = game_details["White_Fide_ID"].values[0]
+        return ui.HTML(f"Nombre: {player_name}<br>ELO: {elo}<br>FIDE ID: {fide_id}")
+
+    @output
+    @render.text
+    def black_player_info():
+        game_details = details_df[details_df["Event"] == input.selected_game()]
+        if game_details.empty:
+            return "No disponible"
+        player_name = game_details["Black_Player"].values[0]
+        elo = game_details["Black_Elo"].values[0]
+        fide_id = game_details["Black_Fide_ID"].values[0]
+        return ui.HTML(f"Nombre: {player_name}<br>ELO: {elo}<br>FIDE ID: {fide_id}")
     
     @render.ui
     def output_graph1():
@@ -339,6 +511,62 @@ def server(input, output, session):
         player_name = input.player()
         _, fig_black = player_color_advantage(player_name)
         return fig_black
+    
+    @render.ui
+    def output_graph5():
+        selected_game_id = input.selected_game()  # Esto es un Event, no un número de Round
+        
+        # Buscar el número de ronda correspondiente
+        round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
+        
+        if len(round_info) == 0:
+            return "No se encontró la ronda para esta partida."
+
+        round_number = round_info[0]  # Tomamos la primera coincidencia (asumiendo que es única)
+        
+        fig = engine_evaluation(round_number)
+        return fig
+
+    @render.ui
+    def output_graph6():
+        selected_game_id = input.selected_game()  # Esto es un Event, no un número de Round
+        
+        # Buscar el número de ronda correspondiente
+        round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
+        
+        if len(round_info) == 0:
+            return "No se encontró la ronda para esta partida."
+
+        round_number = round_info[0]  # Tomamos la primera coincidencia (asumiendo que es única)
+        
+        fig = plot_player_times(round_number)
+        return fig
+
+    @output
+    @render.text
+    def black_player_result():
+        game_details = details_df[details_df["Event"] == input.selected_game()]
+        if game_details.empty:
+            return "No disponible"
+        
+        result = game_details["Result"].values[0]  # Obtiene el resultado de la partida (por ejemplo, '1-0', '0-1', '1/2-1/2')
+        result = result.split("-")[1]
+        return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: white;">{result}</span>')  # Resultado en negrita y más grande
+
+    @output
+    @render.text
+    def white_player_result():
+        game_details = details_df[details_df["Event"] == input.selected_game()]
+        if game_details.empty:
+            return "No disponible"
+        
+        result = game_details["Result"].values[0]  # Obtiene el resultado de la partida (por ejemplo, '1-0', '0-1', '1/2-1/2')
+        result = result.split("-")[0]
+        return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: black;">{result}</span>')  
+
+        # Resultado en negrita y más grande
+
+
 
 
 app = App(app_ui, server)
