@@ -1,0 +1,318 @@
+from pathlib import Path
+import faicons as fa
+import plotly.express as px
+
+from shinywidgets import output_widget, render_plotly
+
+from shiny import App, reactive, render, ui
+
+from shiny import App, ui, render
+import plotly.graph_objects as go
+import plotly.io as pio
+import pandas as pd
+import numpy as np
+from pymongo import MongoClient
+
+client = MongoClient("mongodb://admin:password@localhost:27017/")
+db = client["ChessTournamentAnalysis"]
+app_dir = Path(__file__).parent
+
+players_df = pd.DataFrame(list(db["Players"].find()))
+details_df = pd.DataFrame(list(db["Details"].find()))
+openings_df = pd.DataFrame(list(db["Openings"].find()))
+
+players_df = players_df.drop_duplicates(subset=["FideId"])
+
+details_df = details_df.merge(players_df[['FideId', 'Name', 'Elo']], left_on="White", right_on="FideId")
+details_df = details_df.rename(columns={"Name": "White_Player", "Elo": "White_Elo", "White": "White_Fide_ID"})
+details_df = details_df.drop(columns=['FideId'])
+details_df = details_df.merge(players_df[['FideId', 'Name', 'Elo']], left_on="Black", right_on="FideId")
+details_df = details_df.rename(columns={"Name": "Black_Player", "Elo": "Black_Elo", "Black": "Black_Fide_ID"})
+details_df = details_df.drop(columns=['FideId'])
+details_df = details_df.merge(openings_df, on="ECO", how="left")
+details_df = details_df.rename(columns={"Name": "Opening_Name"})
+
+def players_performance_comparison(details_df):
+    players = pd.concat([details_df["White_Player"], details_df["Black_Player"]]).unique()
+    stats_list = []
+    for player in players:
+        white_wins = ((details_df["White_Player"] == player) & (details_df["Result"] == "1-0")).sum()
+        white_draws = ((details_df["White_Player"] == player) & (details_df["Result"] == "1/2-1/2")).sum()
+        black_wins = ((details_df["Black_Player"] == player) & (details_df["Result"] == "0-1")).sum()
+        black_draws = ((details_df["Black_Player"] == player) & (details_df["Result"] == "1/2-1/2")).sum()
+
+        stats_list.append({
+            "Player": player,
+            "Wins with White": white_wins + white_draws * 0.5,
+            "Wins with Black": black_wins + black_draws * 0.5
+        })
+
+    players_stats = pd.DataFrame(stats_list)
+    players_stats["Total Score"] = players_stats["Wins with White"] + players_stats["Wins with Black"]
+    players_stats = players_stats.sort_values(by="Total Score", ascending=False)
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with White"], name="Puntuación con Blancas", marker_color="white", text=players_stats["Wins with White"], textposition="none", hoverinfo="text"))
+    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with Black"], name="Puntuación con Negras", marker_color="black", text=players_stats["Wins with Black"], textposition="none", hoverinfo="text"))
+
+    fig.update_layout(
+        barmode="stack",
+        title="Comparación de Puntuación Obtenida por Jugador",
+        xaxis_title="Jugador",
+        yaxis_title="Puntuación Obtenida",
+        xaxis_tickangle=-45,
+        template="ggplot2",
+        showlegend=False
+    )
+
+    graph_html = pio.to_html(fig, full_html=False)
+    return graph_html
+
+def players_wins_comparison(details_df):
+    players = pd.concat([details_df["White_Player"], details_df["Black_Player"]]).unique()
+    stats_list = []
+    for player in players:
+        white_wins = ((details_df["White_Player"] == player) & (details_df["Result"] == "1-0")).sum()
+        black_wins = ((details_df["Black_Player"] == player) & (details_df["Result"] == "0-1")).sum()
+
+        stats_list.append({"Player": player, "Wins with White": white_wins, "Wins with Black": black_wins})
+
+    players_stats = pd.DataFrame(stats_list)
+    players_stats["Total Wins"] = players_stats["Wins with White"] + players_stats["Wins with Black"]
+    players_stats = players_stats.sort_values(by="Total Wins", ascending=False)
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with White"], name="Victorias con Blancas", marker_color="white", text=players_stats["Wins with White"], textposition="none", hoverinfo="text"))
+    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with Black"], name="Victorias con Negras", marker_color="black", text=players_stats["Wins with Black"], textposition="none", hoverinfo="text"))
+
+    fig.update_layout(
+        barmode="stack",
+        title="Comparación de Victorias por Jugador",
+        xaxis_title="Jugador",
+        yaxis_title="Partidas Ganadas",
+        xaxis_tickangle=-45,
+        template="ggplot2",
+        showlegend=False
+    )
+
+    graph_html = pio.to_html(fig, full_html=False)
+    return graph_html
+
+def opening_effect(details_df):
+    opening_counts = details_df["Opening_Name"].value_counts().head(10)
+    
+    white_wins = []
+    black_wins = []
+    draws = []
+    eco_codes = []
+    opening_names = []
+
+    for opening in opening_counts.index:
+        opening_games = details_df[details_df["Opening_Name"] == opening]
+        
+        white_win_count = (opening_games["Result"] == "1-0").sum()
+        black_win_count = (opening_games["Result"] == "0-1").sum()
+        draw_count = (opening_games["Result"] == "1/2-1/2").sum()
+        
+        eco_code = opening_games["ECO"].iloc[0]  
+        opening_name = opening
+
+        white_wins.append(white_win_count)
+        black_wins.append(black_win_count)
+        draws.append(draw_count)
+        eco_codes.append(eco_code)
+        opening_names.append(opening_name)
+    
+    results_df = pd.DataFrame({
+        'ECO': eco_codes,  
+        'Opening': opening_names,
+        'White Wins': white_wins,
+        'Black Wins': black_wins,
+        'Draws': draws
+    })
+    
+    fig = go.Figure()
+
+    fig.add_trace(go.Bar(
+        x=results_df['ECO'],  
+        y=results_df['White Wins'], 
+        name="Victorias con Blancas", 
+        marker_color="white", 
+        text=results_df['Opening'],
+        textposition="none",
+        hovertemplate="<b>%{text}</b><br>Victorias Blancas: %{y}<extra></extra>"
+    ))
+
+    fig.add_trace(go.Bar(
+        x=results_df['ECO'],  
+        y=results_df['Black Wins'], 
+        name="Victorias con Negras", 
+        marker_color="black", 
+        text=results_df['Opening'],  
+        textposition="none",
+        hovertemplate="<b>%{text}</b><br>Victorias Negras: %{y}<extra></extra>"
+    ))
+
+    fig.add_trace(go.Bar(
+        x=results_df['ECO'],  
+        y=results_df['Draws'], 
+        name="Empates", 
+        marker_color="gray", 
+        text=results_df['Opening'],  
+        textposition="none",
+        hovertemplate="<b>%{text}</b><br>Empates: %{y}<extra></extra>"
+    ))
+
+    fig.update_layout(
+        barmode="stack",
+        xaxis_title="Código ECO",
+        yaxis_title="Número de Partidas",
+        template="ggplot2",
+        showlegend=True
+    )
+
+    return fig
+
+
+
+
+def player_color_advantage(player_name):
+    white_games = details_df[details_df["White_Player"] == player_name]
+    black_games = details_df[details_df["Black_Player"] == player_name]
+    
+    white_wins = (white_games["Result"] == "1-0").sum()
+    white_losses = (white_games["Result"] == "0-1").sum()
+    white_draws = (white_games["Result"] == "1/2-1/2").sum()
+    
+    black_wins = (black_games["Result"] == "0-1").sum()
+    black_losses = (black_games["Result"] == "1-0").sum()
+    black_draws = (black_games["Result"] == "1/2-1/2").sum()
+
+    labels = ["Victorias", "Empates", "Derrotas"]
+    colors = ["#00FF00", "#FFFF66", "#FF0000"]
+
+    fig_white = go.Figure()
+    fig_white.add_trace(go.Pie(
+        labels=labels, 
+        values=[white_wins, white_draws, white_losses], 
+        marker=dict(colors=colors),
+        textinfo="label+percent",
+        hole=0.4
+    ))
+
+    fig_black = go.Figure()
+    fig_black.add_trace(go.Pie(
+        labels=labels, 
+        values=[black_wins, black_draws, black_losses], 
+        marker=dict(colors=colors),
+        textinfo="label+percent",
+        hole=0.4
+    ))
+
+    return fig_white, fig_black
+
+
+
+
+
+
+ICONS = {
+    "user": fa.icon_svg("user", "regular"),
+    "wallet": fa.icon_svg("wallet"),
+    "currency-dollar": fa.icon_svg("dollar-sign"),
+    "ellipsis": fa.icon_svg("ellipsis"),
+}
+
+app_ui = ui.page_fluid( 
+    ui.h1("Chess Tournament Analysis | Cerrado IM Barcelona Junio 2024", style="text-align:left;"),
+    ui.navset_tab(
+        ui.nav_panel("General",  
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("Comparación de Puntuación por Jugador"), 
+                    ui.output_ui("output_graph1"), full_screen=True
+                ),
+                ui.card(
+                    ui.card_header("Comparación de Victorias por Jugador"), 
+                    ui.output_ui("output_graph2"), full_screen=True
+                ),
+                col_widths=[6, 6, 12]
+            ),
+            ui.card(
+                    ui.card_header("Comparación de Resultados por Apertura"),
+                    ui.output_ui("output_graph3"), full_screen=True
+                )
+        ),
+        
+        ui.nav_panel("Individual",  
+            ui.page_sidebar(
+                ui.sidebar(
+                    ui.input_select("player", "Selecciona un jugador:", {name: name for name in players_df["Name"].tolist()}),
+                    open="desktop",
+                ),
+                ui.layout_columns(
+                    ui.layout_columns(
+                        ui.card(ui.card_header("Nombre"),)
+                    ),
+                    ui.layout_columns(
+                        ui.card(ui.card_header("ELO"))
+                    ),
+                    ui.layout_columns(
+                        ui.card(ui.card_header("FIDE ID"))
+                    )
+                ),
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Rendimiento con blancas"),
+                        ui.output_ui("output_graph4i"), full_screen=True
+                    ),
+                    ui.card(
+                        ui.card_header("Rendimiento con negras"),
+                        ui.output_ui("output_graph4ii"), full_screen=True
+                    )
+                ),
+            ),
+        ),
+    ),
+    ui.include_css(app_dir / "styles.css"),
+    title="Chess Tournament Analysis | Cerrado IM Barcelona Junio 2024",
+    fillable=True,
+)
+
+
+
+
+
+def server(input, output, session):
+        
+    @render.ui
+    def output_graph1():
+        graph_html = players_performance_comparison(details_df)
+        return ui.HTML(graph_html)
+    @render.ui
+    def output_graph2():
+        graph_html = players_wins_comparison(details_df)
+        return ui.HTML(graph_html)
+
+    @render.ui
+    def output_graph3():
+        fig = opening_effect(details_df)
+        return fig
+
+    @render.ui
+    def output_graph4i():
+        player_name = input.player()
+        fig_white, _ = player_color_advantage(player_name)
+        return fig_white
+
+    @render.ui
+    def output_graph4ii():
+        player_name = input.player()
+        _, fig_black = player_color_advantage(player_name)
+        return fig_black
+
+
+app = App(app_ui, server)
+
+if __name__ == "__main__":
+    app.run()
