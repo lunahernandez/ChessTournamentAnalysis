@@ -211,7 +211,19 @@ def player_color_advantage(player_name):
 
     return fig_white, fig_black
 
-
+def get_player_info(player_name):
+    player_info = details_df[
+        (details_df["White_Player"] == player_name) | (details_df["Black_Player"] == player_name)
+    ]
+    
+    if not player_info.empty:
+        player_elo = player_info.iloc[0]["White_Elo"] if "White_Elo" in player_info else "Desconocido"
+        fide_id = player_info.iloc[0]["White_Fide_ID"] if "White_Fide_ID" in player_info else "No disponible"
+    else:
+        player_elo = "Desconocido"
+        fide_id = "No disponible"
+    
+    return player_elo, fide_id
 
 
 
@@ -251,15 +263,9 @@ app_ui = ui.page_fluid(
                     open="desktop",
                 ),
                 ui.layout_columns(
-                    ui.layout_columns(
-                        ui.card(ui.card_header("Nombre"),)
-                    ),
-                    ui.layout_columns(
-                        ui.card(ui.card_header("ELO"))
-                    ),
-                    ui.layout_columns(
-                        ui.card(ui.card_header("FIDE ID"))
-                    )
+                    ui.output_ui("player_name_card"),
+                    ui.output_ui("player_elo_card"),
+                    ui.output_ui("player_fide_id_card")
                 ),
                 ui.layout_columns(
                     ui.card(
@@ -284,7 +290,30 @@ app_ui = ui.page_fluid(
 
 
 def server(input, output, session):
-        
+    @render.ui
+    def player_name_card():
+        return ui.card(
+            ui.card_header(ui.HTML(f"{fa.icon_svg('user', 'solid')} Nombre")),
+            ui.card_body(ui.p(input.player()))
+        )
+
+    @render.ui
+    def player_elo_card():
+        player_elo, _ = get_player_info(input.player())
+        return ui.card(
+            ui.card_header(ui.HTML(f"{fa.icon_svg('chart-line')} ELO")),
+            ui.card_body(ui.p(str(player_elo)))
+        )
+
+    @render.ui
+    def player_fide_id_card():
+        _, fide_id = get_player_info(input.player())
+        return ui.card(
+            ui.card_header(ui.HTML(f"{fa.icon_svg('id-card')} FIDE ID")),
+            ui.card_body(ui.p(str(fide_id)))
+        )
+    
+    
     @render.ui
     def output_graph1():
         graph_html = players_performance_comparison(details_df)
