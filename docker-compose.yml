@@ -8,15 +8,22 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
-      - ./data:/mnt/data        
+      - ./data:/mnt/data
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password
     restart: always
 
-networks:
-  practica1_network:
-    driver: bridge
+  python-init:
+    image: python:3.9-slim  # Usamos una imagen de Python ligera
+    container_name: python_init
+    depends_on:
+      - mongodb
+    volumes:
+      - ./python:/mnt/python  # Montamos la carpeta python dentro del contenedor
+      - ./data:/mnt/data  # Montamos la carpeta data dentro del contenedor
+    command: ["python", "/mnt/python/create_collections.py"]  # Ejecutamos el script de inicialización
+    restart: "no"  # Solo ejecutará el contenedor una vez al inicializar
 
 volumes:
   mongodb_data:

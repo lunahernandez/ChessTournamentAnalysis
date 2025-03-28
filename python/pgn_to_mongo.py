@@ -24,7 +24,7 @@ def convert_time_to_seconds(time):
     return 0
 
 def insert_pgn_to_mongo(pgn_file):
-    client = MongoClient("mongodb://localhost:27017/")  # Conexión sin autenticación
+    client = MongoClient("mongodb://admin:password@host.docker.internal:27017/")  # Conexión sin autenticación
     db = client["chess_db"]
 
     players_set = set()
