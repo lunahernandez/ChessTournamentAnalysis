@@ -1,17 +1,12 @@
+from shiny import App, render, ui
+from pymongo import MongoClient
 from pathlib import Path
 import faicons as fa
 import plotly.express as px
-
-from shinywidgets import output_widget, render_plotly
-
-from shiny import App, reactive, render, ui
-
-from shiny import App, ui, render
 import plotly.graph_objects as go
 import plotly.io as pio
 import pandas as pd
-import numpy as np
-from pymongo import MongoClient
+from datetime import timedelta
 
 client = MongoClient("mongodb://admin:password@localhost:27017/")
 db = client["ChessTournamentAnalysis"]
@@ -233,7 +228,6 @@ def engine_evaluation(round_number, show_colors=True):
     if game_moves.empty:
         return go.Figure()
 
-    # Ordenar movimientos para que primero estén las blancas y luego las negras
     game_moves["Color Order"] = game_moves["Color"].map({"White": 0, "Black": 1})
     game_moves = game_moves.sort_values(by=["Move Number", "Color Order"]).drop(columns=["Color Order"])
     game_moves["Adjusted Move Number"] = game_moves["Move Number"] + game_moves["Color"].map({"White": 0, "Black": 0.5})
@@ -241,7 +235,6 @@ def engine_evaluation(round_number, show_colors=True):
     move_numbers = game_moves["Adjusted Move Number"]
     evaluations = game_moves["Evaluation"]
 
-    # Función para categorizar la evaluación y determinar ventaja
     def categorize_eval(eval_value):
         if eval_value >= 1.6:
             return "Decisiva Mejor", "white"
@@ -258,13 +251,11 @@ def engine_evaluation(round_number, show_colors=True):
         else:
             return "Decisiva Peor", "black"
 
-    # Aplicar categorización a cada jugada
     game_moves[["Evaluation Category", "Advantage Color"]] = game_moves["Evaluation"].apply(lambda x: pd.Series(categorize_eval(x)))
 
 
     fig = go.Figure()
 
-    # Línea de evaluación con tooltip y colores según ventaja
     fig.add_trace(go.Scatter(
         x=move_numbers,
         y=evaluations,
@@ -276,11 +267,10 @@ def engine_evaluation(round_number, show_colors=True):
                       "<b>Evaluación:</b> %{y}<br>"
                       "<b>Estado:</b> %{customdata[0]}<br>"
                       "<b>Jugador:</b> %{customdata[1]}",
-        customdata=list(zip(game_moves["Evaluation Category"], game_moves["Color"])),  # Estado y jugador en tooltip
+        customdata=list(zip(game_moves["Evaluation Category"], game_moves["Color"])),
         showlegend=False
     ))
 
-    # Línea de referencia en 0 (equilibrio)
     fig.add_shape(
         type="line", x0=0, x1=max(move_numbers), y0=0, y1=0,
         line=dict(color="black", width=2, dash="dash")
@@ -295,36 +285,56 @@ def engine_evaluation(round_number, show_colors=True):
 
     return fig
 
-
-
 def plot_player_times(round_number):
     game_moves = moves_df[moves_df["Round"] == round_number].copy()
 
-    # Asignar colores personalizados (Blancas = Blanco, Negras = Negro)
     color_map = {"White": "white", "Black": "black"}
+
+    game_moves["Time (formatted)"] = game_moves["Time (seconds)"].apply(
+        lambda x: str(timedelta(seconds=x))
+    )
+
+    time_interval = 1200
+    max_time = game_moves["Time (seconds)"].max()
+    
+    tick_vals = list(range(0, int(max_time) + 1, time_interval))
+    tick_labels = [str(timedelta(seconds=t)) for t in tick_vals]
+    
+    game_moves["Jugador"] = game_moves["Color"].replace({"White": "Blancas", "Black": "Negras"})
 
     fig = px.line(
         game_moves,
         x="Move Number",
         y="Time (seconds)",
         color="Color",
-        color_discrete_map=color_map,  # Aplicar colores personalizados
+        color_discrete_map=color_map,
         markers=True,
-        labels={"Time (seconds)": "Tiempo (segundos)", "Move Number": "Número de Jugada", "Color": "Jugador"},
+        labels={"Time (formatted)": "Tiempo", "Time (seconds)": "Tiempo restante (HH:MM:ss)", 
+                "Move Number": "Número de Jugada", "Color": "Jugador"},
+        hover_data={
+            "Time (seconds)": False,
+            "Time (formatted)": True,
+            "Jugador": True
+        }
     )
 
-    # Actualizar los puntos con borde negro
     fig.update_traces(
         marker=dict(
             size=8,
-            line=dict(width=2, color="black")  # Borde negro con ancho de 2
+            line=dict(width=2, color="black")
         )
     )
-    
+
     fig.update_layout(
-        showlegend=False,  # Ocultar leyenda
+        showlegend=False,
         xaxis=dict(showgrid=True),
-        yaxis=dict(showgrid=True, tickformat="%M:%S"),  # Formato min:seg
+        yaxis=dict(
+            showgrid=True,
+            tickmode="array",
+            tickvals=tick_vals,
+            ticktext=tick_labels,
+            ticks="outside"
+        ),
         template="ggplot2"
     )
 
@@ -395,26 +405,25 @@ app_ui = ui.page_fluid(
                         ui.HTML(f"{fa.icon_svg('user', 'solid')} Jugador Blanco")
                     ]), 
                     ui.column(2, [
-                        ui.output_ui("white_player_result")  # Mostramos el resultado para el jugador blanco aquí
+                        ui.output_ui("white_player_result")
                     ])
                 ])),
                 ui.card_body(ui.output_ui("white_player_info")),
-                style="background-color: white; color: black;"  # Caja blanca para el jugador blanco
+                style="background-color: white; color: black;"
             ),
 
             
-            # Tarjeta para el Jugador Negro (fondo negro y texto blanco)
             ui.card(
             ui.card_header(ui.row([
                 ui.column(10, [
                     ui.HTML(f"{fa.icon_svg('user', 'solid')} Jugador Negro")
                 ]), 
                 ui.column(2, [
-                    ui.output_ui("black_player_result")  # Mostramos el resultado para el jugador blanco aquí
+                    ui.output_ui("black_player_result")
                 ])
             ])),
             ui.card_body(ui.output_ui("black_player_info")),
-            style="background-color: black; color: white;"  # Caja blanca para el jugador blanco
+            style="background-color: black; color: white;"
         ),
             
             open="desktop",
@@ -424,7 +433,7 @@ app_ui = ui.page_fluid(
             ui.output_ui("output_graph5"), full_screen=True
         ),
         ui.card(
-            ui.card_header("Tiempo Consumido por Jugada"),
+            ui.card_header("Tiempo Restante por Jugada"),
             ui.output_ui("output_graph6"), full_screen=True
         )
     ),
@@ -514,30 +523,28 @@ def server(input, output, session):
     
     @render.ui
     def output_graph5():
-        selected_game_id = input.selected_game()  # Esto es un Event, no un número de Round
+        selected_game_id = input.selected_game()
         
-        # Buscar el número de ronda correspondiente
         round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
         
         if len(round_info) == 0:
             return "No se encontró la ronda para esta partida."
 
-        round_number = round_info[0]  # Tomamos la primera coincidencia (asumiendo que es única)
+        round_number = round_info[0]
         
         fig = engine_evaluation(round_number)
         return fig
 
     @render.ui
     def output_graph6():
-        selected_game_id = input.selected_game()  # Esto es un Event, no un número de Round
+        selected_game_id = input.selected_game()
         
-        # Buscar el número de ronda correspondiente
         round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
         
         if len(round_info) == 0:
             return "No se encontró la ronda para esta partida."
 
-        round_number = round_info[0]  # Tomamos la primera coincidencia (asumiendo que es única)
+        round_number = round_info[0]
         
         fig = plot_player_times(round_number)
         return fig
@@ -549,9 +556,13 @@ def server(input, output, session):
         if game_details.empty:
             return "No disponible"
         
-        result = game_details["Result"].values[0]  # Obtiene el resultado de la partida (por ejemplo, '1-0', '0-1', '1/2-1/2')
+        result = game_details["Result"].values[0]
         result = result.split("-")[1]
-        return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: white;">{result}</span>')  # Resultado en negrita y más grande
+        
+        if result not in ['1', '0']:
+            result = '½'
+        
+        return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: white;">{result}</span>')
 
     @output
     @render.text
@@ -560,11 +571,14 @@ def server(input, output, session):
         if game_details.empty:
             return "No disponible"
         
-        result = game_details["Result"].values[0]  # Obtiene el resultado de la partida (por ejemplo, '1-0', '0-1', '1/2-1/2')
+        result = game_details["Result"].values[0]
         result = result.split("-")[0]
+
+        if result not in ['1', '0']:
+            result = '½'
+        
         return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: black;">{result}</span>')  
 
-        # Resultado en negrita y más grande
 
 
 
