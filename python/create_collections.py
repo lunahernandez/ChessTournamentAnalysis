@@ -14,7 +14,7 @@ def create_collections():
             print(f"⚠️ Colección '{col}' ya existe.")
 
         # Insertar un documento vacío para asegurarnos de que la base de datos y la colección se creen si no existen
-        db[col].insert_one({})  # Insertamos un documento vacío en la colección
+        # db[col].insert_one({})  # Insertamos un documento vacío en la colección
 
 if __name__ == "__main__":
     create_collections()
