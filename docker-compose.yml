@@ -7,7 +7,8 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./data:/data/db
+      - mongodb_data:/data/db
+      - ./data:/mnt/data        
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password
@@ -16,3 +17,6 @@ services:
 networks:
   practica1_network:
     driver: bridge
+
+volumes:
+  mongodb_data:

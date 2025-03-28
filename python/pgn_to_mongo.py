@@ -1,6 +1,6 @@
+from pymongo import MongoClient
 import chess.pgn
 import re
-from pymongo import MongoClient
 
 def extract_eval_and_time(comment):
     eval_pattern = r'\[%eval\s*(-?[\d.]+)\]'
@@ -24,7 +24,7 @@ def convert_time_to_seconds(time):
     return 0
 
 def insert_pgn_to_mongo(pgn_file):
-    client = MongoClient("mongodb://admin:password@localhost:27017/")
+    client = MongoClient("mongodb://localhost:27017/")  # Conexión sin autenticación
     db = client["chess_db"]
 
     players_set = set()
@@ -55,13 +55,17 @@ def insert_pgn_to_mongo(pgn_file):
             if (white_name, white_fide_id, white_elo) not in players_set:
                 players_set.add((white_name, white_fide_id, white_elo))
                 db.players.insert_one({
-                    "Name": white_name, "FideId": white_fide_id, "Elo": white_elo
+                    "Name": white_name, 
+                    "FideId": white_fide_id, 
+                    "Elo": int(white_elo) if white_elo else 0  # Aseguramos que Elo sea un número entero
                 })
 
             if (black_name, black_fide_id, black_elo) not in players_set:
                 players_set.add((black_name, black_fide_id, black_elo))
                 db.players.insert_one({
-                    "Name": black_name, "FideId": black_fide_id, "Elo": black_elo
+                    "Name": black_name, 
+                    "FideId": black_fide_id, 
+                    "Elo": int(black_elo) if black_elo else 0  # Aseguramos que Elo sea un número entero
                 })
 
             # Insertar apertura si no está
@@ -71,12 +75,12 @@ def insert_pgn_to_mongo(pgn_file):
 
             # Insertar detalles de la partida
             db.details.insert_one({
-                "Round": round_pk,
-                "Event": event,
-                "White": white_fide_id,
-                "Black": black_fide_id,
-                "ECO": eco,
-                "Result": result
+                "Round": round_pk if round_pk else "Unknown",
+                "Event": event if event else "Unknown",
+                "White": white_fide_id if white_fide_id else "Unknown",
+                "Black": black_fide_id if black_fide_id else "Unknown",
+                "ECO": eco if eco else "Unknown",
+                "Result": result if result else "Unknown"
             })
 
             # Insertar movimientos
@@ -88,13 +92,13 @@ def insert_pgn_to_mongo(pgn_file):
                 color = "White" if i % 2 == 0 else "Black"
 
                 db.moves.insert_one({
-                    "Round": round_pk,
+                    "Round": round_pk if round_pk else "Unknown",
                     "Move Number": move_number,
                     "Move": board.san(move_obj),
                     "Color": color,
-                    "Evaluation": evaluation,
-                    "Time": time,
-                    "Time (seconds)": time_seconds
+                    "Evaluation": float(evaluation) if evaluation is not None else 0.0,  # Aseguramos que Evaluation sea float
+                    "Time": time if time else "Unknown",
+                    "Time (seconds)": int(time_seconds) if time_seconds else 0  # Aseguramos que Time (seconds) sea entero
                 })
 
                 if color == "Black":
@@ -105,4 +109,4 @@ def insert_pgn_to_mongo(pgn_file):
     print("✅ PGN importado correctamente a MongoDB.")
 
 if __name__ == "__main__":
-    insert_pgn_to_mongo("data/games.pgn")
+    insert_pgn_to_mongo("../data/games.pgn")

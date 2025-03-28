@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 
 def create_collections():
-    client = MongoClient("mongodb://admin:password@localhost:27017/")
+    client = MongoClient("mongodb://localhost:27017/")  # Conexión sin autenticación
     db = client["chess_db"]
 
     # Crea las colecciones vacías
