@@ -25,7 +25,7 @@ def convert_time_to_seconds(time):
 
 def insert_pgn_to_mongo(pgn_file):
     client = MongoClient("mongodb://admin:password@host.docker.internal:27017/")  # Conexión sin autenticación
-    db = client["chess_db"]
+    db = client["ChessTournamentAnalysis"]
 
     players_set = set()
     openings_set = set()
@@ -54,7 +54,7 @@ def insert_pgn_to_mongo(pgn_file):
             # Insertar jugadores si no están
             if (white_name, white_fide_id, white_elo) not in players_set:
                 players_set.add((white_name, white_fide_id, white_elo))
-                db.players.insert_one({
+                db.Players.insert_one({
                     "Name": white_name, 
                     "FideId": white_fide_id, 
                     "Elo": int(white_elo) if white_elo else 0  # Aseguramos que Elo sea un número entero
@@ -62,7 +62,7 @@ def insert_pgn_to_mongo(pgn_file):
 
             if (black_name, black_fide_id, black_elo) not in players_set:
                 players_set.add((black_name, black_fide_id, black_elo))
-                db.players.insert_one({
+                db.Players.insert_one({
                     "Name": black_name, 
                     "FideId": black_fide_id, 
                     "Elo": int(black_elo) if black_elo else 0  # Aseguramos que Elo sea un número entero
@@ -71,10 +71,10 @@ def insert_pgn_to_mongo(pgn_file):
             # Insertar apertura si no está
             if (eco, opening_name) not in openings_set:
                 openings_set.add((eco, opening_name))
-                db.openings.insert_one({"ECO": eco, "Name": opening_name})
+                db.Openings.insert_one({"ECO": eco, "Name": opening_name})
 
             # Insertar detalles de la partida
-            db.details.insert_one({
+            db.Details.insert_one({
                 "Round": round_pk if round_pk else "Unknown",
                 "Event": event if event else "Unknown",
                 "White": white_fide_id if white_fide_id else "Unknown",
@@ -91,7 +91,7 @@ def insert_pgn_to_mongo(pgn_file):
                 time_seconds = convert_time_to_seconds(time)
                 color = "White" if i % 2 == 0 else "Black"
 
-                db.moves.insert_one({
+                db.Moves.insert_one({
                     "Round": round_pk if round_pk else "Unknown",
                     "Move Number": move_number,
                     "Move": board.san(move_obj),

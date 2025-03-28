@@ -2,10 +2,10 @@ from pymongo import MongoClient
 
 def create_collections():
     client = MongoClient("mongodb://admin:password@mongodb:27017/")  # Conexión con MongoDB
-    db = client["chess_db"]  # Nombre de la base de datos
+    db = client["ChessTournamentAnalysis"]  # Nombre de la base de datos
 
     # Crea las colecciones vacías
-    collections = ["moves", "details", "players", "openings"]
+    collections = ["Moves", "Details", "Players", "Openings"]
     for col in collections:
         if col not in db.list_collection_names():
             db.create_collection(col)

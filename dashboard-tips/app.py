@@ -13,7 +13,7 @@ import pandas as pd
 import numpy as np
 from pymongo import MongoClient
 
-client = MongoClient("mongodb://admin:password@localhost:27017/")
+client = MongoClient("mongodb://admin:password@mongodb:27017/")
 db = client["ChessTournamentAnalysis"]
 app_dir = Path(__file__).parent
 

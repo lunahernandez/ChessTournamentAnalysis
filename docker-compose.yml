@@ -7,23 +7,41 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongodb_data:/data/db
-      - ./data:/mnt/data
+      - mongodb_data:/data/db  # Volumen persistente para MongoDB
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password
     restart: always
 
   python-init:
-    image: python:3.9-slim  # Usamos una imagen de Python ligera
+    build:
+      context: ./python  # El contexto es la carpeta 'python' donde está el Dockerfile de inicialización
+      dockerfile: Dockerfile  # Usamos el Dockerfile dentro de la carpeta python
     container_name: python_init
     depends_on:
       - mongodb
     volumes:
-      - ./python:/mnt/python  # Montamos la carpeta python dentro del contenedor
-      - ./data:/mnt/data  # Montamos la carpeta data dentro del contenedor
-    command: ["python", "/mnt/python/create_collections.py"]  # Ejecutamos el script de inicialización
-    restart: "no"  # Solo ejecutará el contenedor una vez al inicializar
+      - ./python:/mnt/python  # Volumen donde copiamos los archivos Python
+      - ./data:/mnt/data  # Aseguramos que los datos estén accesibles
+    restart: "no"
+
+  app-web:
+    build:
+      context: ./dashboard-tips
+      dockerfile: Dockerfile
+    container_name: app_web
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+    volumes:
+      - ./dashboard-tips:/app
+      - ./data:/mnt/data
+    restart: always
+
+networks:
+  default:
+    driver: bridge
 
 volumes:
-  mongodb_data:
+  mongodb_data:  # Volumen persistente para MongoDB, para almacenar datos
