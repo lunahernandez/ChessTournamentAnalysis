@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import pandas as pd
 from datetime import timedelta
+import numpy as np
 
 client = MongoClient("mongodb://admin:password@mongodb:27017/")
 db = client["ChessTournamentAnalysis"]
@@ -321,7 +322,7 @@ def plot_player_times(round_number):
     fig.update_traces(
         marker=dict(
             size=8,
-            line=dict(width=2, color="black")
+            line=dict(width=1, color="black")
         )
     )
 
@@ -336,6 +337,197 @@ def plot_player_times(round_number):
             ticks="outside"
         ),
         template="ggplot2"
+    )
+
+    return fig
+
+
+def format_time(seconds):
+    """Convierte segundos a formato mm:ss"""
+    minutes = int(seconds // 60)
+    secs = int(seconds % 60)
+    return f"{minutes:02d}:{secs:02d}"
+
+def time_vs_eval_change_single_game(moves_df, round_number, num_ticks=10):
+    game_moves = moves_df[moves_df["Round"] == round_number].copy()
+
+    game_moves["Time (seconds)"] = pd.to_numeric(game_moves["Time (seconds)"], errors="coerce")
+    game_moves.dropna(subset=["Evaluation", "Time (seconds)"], inplace=True)
+
+    game_moves["Time Net"] = game_moves["Time (seconds)"] - 30
+    game_moves["Time Net"] = game_moves["Time Net"].apply(lambda x: max(x, 0))
+
+    game_moves["Color Order"] = game_moves["Color"].map({"White": 0, "Black": 1})
+    game_moves.sort_values(by=["Move Number", "Color Order"], inplace=True)
+    game_moves.drop(columns=["Color Order"], inplace=True)
+
+    game_moves["Time Difference"] = - (game_moves["Time Net"] - game_moves.groupby("Color")["Time (seconds)"].shift(1))
+    game_moves["Eval Change"] = game_moves["Evaluation"].diff()
+    game_moves.dropna(subset=["Time Difference", "Eval Change"], inplace=True)
+
+    # Convertir tiempo a valores absolutos y aplicar formato mm:ss
+    game_moves["Tiempo Diferencia Abs"] = game_moves["Time Difference"].abs()
+    game_moves["Tiempo Diferencia (mm:ss)"] = game_moves["Tiempo Diferencia Abs"].apply(format_time)  # Para tooltip
+
+    # Seleccionar un número limitado de ticks en el eje X
+    tick_values = np.linspace(game_moves["Tiempo Diferencia Abs"].min(), game_moves["Tiempo Diferencia Abs"].max(), num_ticks)
+    tick_labels = [format_time(tick) for tick in tick_values]
+
+    fig = px.scatter(
+        game_moves,
+        x="Tiempo Diferencia Abs",  # Mantener valores numéricos para ordenar
+        y="Eval Change",
+        color="Color",
+        hover_data={"Tiempo Diferencia (mm:ss)": True, "Tiempo Diferencia Abs": False},  # Mostrar solo el formateado
+        labels={
+            "Tiempo Diferencia Abs": "Tiempo Neto en la Jugada (segundos)",
+            "Eval Change": "Cambio en Evaluación",
+            "Color": "Color de las Piezas"
+        },
+        color_discrete_map={"White": "white", "Black": "black"},
+        template="ggplot2"
+    )
+
+    fig.update_layout(
+        xaxis=dict(
+            tickmode="array",
+            tickvals=tick_values.tolist(),  # Usar valores limitados
+            ticktext=tick_labels,  # Mostrar formato mm:ss
+            title="Tiempo Neto en la Jugada (mm:ss)"
+        )
+    )
+
+    fig.update_traces(
+        marker=dict(
+            size=8,
+            line=dict(width=1, color="black")
+        )
+    )
+
+    fig.add_hline(y=0, line_dash="dash", line_color="black")
+
+    return fig
+
+def elo_vs_result(details_df):
+    details_df_clean = details_df.dropna(subset=["Result"])
+
+    details_df_clean['Result'] = details_df_clean['Result'].map({
+        '1-0': 'Victoria Blancas',
+        '0-1': 'Victoria Negras',
+        '1/2-1/2': 'Empate'
+    })
+
+    details_df_clean = details_df_clean[['White_Elo', 'Black_Elo', 'Result']]
+
+    min_elo = min(details_df_clean["White_Elo"].min(), details_df_clean["Black_Elo"].min())
+    max_elo = max(details_df_clean["White_Elo"].max(), details_df_clean["Black_Elo"].max())
+
+    fig = px.scatter(
+        details_df_clean,
+        x="White_Elo",
+        y="Black_Elo",
+        color="Result",
+        labels={
+            "White_Elo": "ELO del Jugador de Blancas",
+            "Black_Elo": "ELO del Jugador de Negras",
+            "Result": "Resultado"
+        },
+        color_discrete_map={
+            "Victoria Blancas": "white",
+            "Victoria Negras": "black",
+            "Empate": "gray"
+        },
+        template="ggplot2"
+    )
+
+    fig.update_traces(
+        marker=dict(
+            size=8,
+            line=dict(width=1, color="black")
+        )
+    )
+
+    fig.add_trace(
+        dict(
+            type="scatter",
+            x=[min_elo, max_elo],
+            y=[min_elo, max_elo],
+            mode="lines",
+            line=dict(color="gray", dash="dash"),
+            showlegend=False
+        )
+    )
+
+    return fig
+
+
+def categorize_stockfish_eval(eval_value, is_white):
+    if not is_white:
+        eval_value = -eval_value
+
+    if eval_value >= 1.6:
+        return "Decisiva Mejor"
+    elif eval_value >= 0.7:
+        return "Clara Mejor"
+    elif eval_value >= 0.3:
+        return "Ligera Mejor"
+    elif eval_value > -0.3:
+        return "Igualdad"
+    elif eval_value >= -0.69:
+        return "Ligera Peor"
+    elif eval_value >= -1.59:
+        return "Clara Peor"
+    else:
+        return "Decisiva Peor"
+
+def evaluation_distribution_plotly(details_df, moves_df):
+    merged_df = moves_df.merge(details_df, on="Round", how="left")
+
+    merged_df["Player"] = merged_df.apply(
+        lambda row: row["White_Player"] if row["Move Number"] % 2 != 0 else row["Black_Player"],
+        axis=1
+    )
+
+    merged_df["Is_White"] = merged_df["Move Number"] % 2 != 0
+
+    merged_df["Eval Category"] = merged_df.apply(
+        lambda row: categorize_stockfish_eval(row["Evaluation"], row["Is_White"]),
+        axis=1
+    )
+
+    eval_counts = merged_df.groupby(["Player", "Eval Category"]).size().unstack(fill_value=0)
+    eval_percentage = eval_counts.div(eval_counts.sum(axis=1), axis=0) * 100
+
+    eval_order = ["Decisiva Peor", "Clara Peor", "Ligera Peor", "Igualdad", "Ligera Mejor", "Clara Mejor", "Decisiva Mejor"]
+    eval_percentage = eval_percentage[eval_order].reset_index()
+
+    eval_data = eval_percentage.melt(id_vars="Player", var_name="Estado de la Posición", value_name="Porcentaje")
+
+    color_map = {
+        "Decisiva Peor": "#8B0000",
+        "Clara Peor": "#FF0000",
+        "Ligera Peor": "#FFA07A",
+        "Igualdad": "#EEE9E9",
+        "Ligera Mejor": "#BCE3B1",
+        "Clara Mejor": "#76C95F",
+        "Decisiva Mejor": "#3D6831"
+    }
+
+    fig = px.bar(
+        eval_data,
+        x="Player",
+        y="Porcentaje",
+        color="Estado de la Posición",
+        labels={"Player": "Jugador"},
+        color_discrete_map=color_map
+    )
+
+    fig.update_layout(
+        showlegend=False,
+        barmode="stack",
+        xaxis_title="Jugador",
+        yaxis_title="Porcentaje de Jugadas",
+        xaxis_tickangle=-45
     )
 
     return fig
@@ -362,12 +554,24 @@ app_ui = ui.page_fluid(
                     ui.card_header("Comparación de Victorias por Jugador"), 
                     ui.output_ui("output_graph2"), full_screen=True
                 ),
-                col_widths=[6, 6, 12]
+                col_widths=[6, 6]
             ),
             ui.card(
                     ui.card_header("Comparación de Resultados por Apertura"),
                     ui.output_ui("output_graph3"), full_screen=True
-                )
+                ),
+                
+            ui.layout_columns(
+                ui.card(
+                    ui.card_header("Comparación de Resultados por Jugador según el ELO"), 
+                    ui.output_ui("output_graph8"), full_screen=True
+                ),
+                ui.card(
+                    ui.card_header("Distribución de Evaluaciones por Jugador"), 
+                    ui.output_ui("output_graph9"), full_screen=True
+                ),
+                col_widths=[6, 6]
+            ),
         ),
         
         ui.nav_panel("Individual",  
@@ -435,6 +639,10 @@ app_ui = ui.page_fluid(
         ui.card(
             ui.card_header("Tiempo Restante por Jugada"),
             ui.output_ui("output_graph6"), full_screen=True
+        ),
+        ui.card(
+            ui.card_header("Relación entre Tiempo Consumido y Cambio en Evaluación"),
+            ui.output_ui("output_graph7"), full_screen=True
         )
     ),
 )
@@ -548,6 +756,34 @@ def server(input, output, session):
         
         fig = plot_player_times(round_number)
         return fig
+    
+    @render.ui
+    def output_graph7():
+        selected_game_id = input.selected_game()
+        
+        round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
+        
+        if len(round_info) == 0:
+            return "No se encontró la ronda para esta partida."
+
+        round_number = round_info[0]
+        
+        fig = time_vs_eval_change_single_game(moves_df, round_number)
+        return fig
+    
+
+    @render.ui
+    def output_graph8():        
+        fig = elo_vs_result(details_df)
+        return fig
+
+
+    @render.ui
+    def output_graph9():        
+        fig = evaluation_distribution_plotly(details_df, moves_df)
+        return fig
+
+    
 
     @output
     @render.text
