@@ -10,3 +10,14 @@
 .popover .btn-close {
   filter: var(--bs-btn-close-white-filter);
 }
+
+
+.ui-card {
+  margin-top: 30px !important;
+  margin-bottom: 30px !important;
+}
+
+.ui-layout-columns .ui-card {
+  margin-left: 10px !important;
+  margin-right: 10px !important;
+}

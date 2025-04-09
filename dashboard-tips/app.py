@@ -2,12 +2,11 @@ from shiny import App, render, ui
 from pymongo import MongoClient
 from pathlib import Path
 import faicons as fa
-import plotly.express as px
-import plotly.graph_objects as go
-import plotly.io as pio
 import pandas as pd
-from datetime import timedelta
-import numpy as np
+from utils.plots import (players_performance_comparison, players_wins_comparison, 
+                         opening_effect, player_color_advantage, get_player_info, 
+                         engine_evaluation, plot_player_times, time_vs_eval_change_single_game,
+                         elo_vs_result, evaluation_distribution_plotly, create_chess_heatmap_plotly)
 
 client = MongoClient("mongodb://admin:password@mongodb:27017/")
 db = client["ChessTournamentAnalysis"]
@@ -29,508 +28,6 @@ details_df = details_df.drop(columns=['FideId'])
 details_df = details_df.merge(openings_df, on="ECO", how="left")
 details_df = details_df.rename(columns={"Name": "Opening_Name"})
 
-def players_performance_comparison(details_df):
-    players = pd.concat([details_df["White_Player"], details_df["Black_Player"]]).unique()
-    stats_list = []
-    for player in players:
-        white_wins = ((details_df["White_Player"] == player) & (details_df["Result"] == "1-0")).sum()
-        white_draws = ((details_df["White_Player"] == player) & (details_df["Result"] == "1/2-1/2")).sum()
-        black_wins = ((details_df["Black_Player"] == player) & (details_df["Result"] == "0-1")).sum()
-        black_draws = ((details_df["Black_Player"] == player) & (details_df["Result"] == "1/2-1/2")).sum()
-
-        stats_list.append({
-            "Player": player,
-            "Wins with White": white_wins + white_draws * 0.5,
-            "Wins with Black": black_wins + black_draws * 0.5
-        })
-
-    players_stats = pd.DataFrame(stats_list)
-    players_stats["Total Score"] = players_stats["Wins with White"] + players_stats["Wins with Black"]
-    players_stats = players_stats.sort_values(by="Total Score", ascending=False)
-
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with White"], name="Puntuación con Blancas", marker_color="white", text=players_stats["Wins with White"], textposition="none", hoverinfo="text"))
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with Black"], name="Puntuación con Negras", marker_color="black", text=players_stats["Wins with Black"], textposition="none", hoverinfo="text"))
-
-    fig.update_layout(
-        barmode="stack",
-        title="Comparación de Puntuación Obtenida por Jugador",
-        xaxis_title="Jugador",
-        yaxis_title="Puntuación Obtenida",
-        xaxis_tickangle=-45,
-        template="ggplot2",
-        showlegend=False
-    )
-
-    graph_html = pio.to_html(fig, full_html=False)
-    return graph_html
-
-def players_wins_comparison(details_df):
-    players = pd.concat([details_df["White_Player"], details_df["Black_Player"]]).unique()
-    stats_list = []
-    for player in players:
-        white_wins = ((details_df["White_Player"] == player) & (details_df["Result"] == "1-0")).sum()
-        black_wins = ((details_df["Black_Player"] == player) & (details_df["Result"] == "0-1")).sum()
-
-        stats_list.append({"Player": player, "Wins with White": white_wins, "Wins with Black": black_wins})
-
-    players_stats = pd.DataFrame(stats_list)
-    players_stats["Total Wins"] = players_stats["Wins with White"] + players_stats["Wins with Black"]
-    players_stats = players_stats.sort_values(by="Total Wins", ascending=False)
-
-    fig = go.Figure()
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with White"], name="Victorias con Blancas", marker_color="white", text=players_stats["Wins with White"], textposition="none", hoverinfo="text"))
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with Black"], name="Victorias con Negras", marker_color="black", text=players_stats["Wins with Black"], textposition="none", hoverinfo="text"))
-
-    fig.update_layout(
-        barmode="stack",
-        title="Comparación de Victorias por Jugador",
-        xaxis_title="Jugador",
-        yaxis_title="Partidas Ganadas",
-        xaxis_tickangle=-45,
-        template="ggplot2",
-        showlegend=False
-    )
-
-    graph_html = pio.to_html(fig, full_html=False)
-    return graph_html
-
-def opening_effect(details_df):
-    opening_counts = details_df["Opening_Name"].value_counts().head(10)
-    
-    white_wins = []
-    black_wins = []
-    draws = []
-    eco_codes = []
-    opening_names = []
-
-    for opening in opening_counts.index:
-        opening_games = details_df[details_df["Opening_Name"] == opening]
-        
-        white_win_count = (opening_games["Result"] == "1-0").sum()
-        black_win_count = (opening_games["Result"] == "0-1").sum()
-        draw_count = (opening_games["Result"] == "1/2-1/2").sum()
-        
-        eco_code = opening_games["ECO"].iloc[0]  
-        opening_name = opening
-
-        white_wins.append(white_win_count)
-        black_wins.append(black_win_count)
-        draws.append(draw_count)
-        eco_codes.append(eco_code)
-        opening_names.append(opening_name)
-    
-    results_df = pd.DataFrame({
-        'ECO': eco_codes,  
-        'Opening': opening_names,
-        'White Wins': white_wins,
-        'Black Wins': black_wins,
-        'Draws': draws
-    })
-    
-    fig = go.Figure()
-
-    fig.add_trace(go.Bar(
-        x=results_df['ECO'],  
-        y=results_df['White Wins'], 
-        name="Victorias con Blancas", 
-        marker_color="white", 
-        text=results_df['Opening'],
-        textposition="none",
-        hovertemplate="<b>%{text}</b><br>Victorias Blancas: %{y}<extra></extra>"
-    ))
-
-    fig.add_trace(go.Bar(
-        x=results_df['ECO'],  
-        y=results_df['Black Wins'], 
-        name="Victorias con Negras", 
-        marker_color="black", 
-        text=results_df['Opening'],  
-        textposition="none",
-        hovertemplate="<b>%{text}</b><br>Victorias Negras: %{y}<extra></extra>"
-    ))
-
-    fig.add_trace(go.Bar(
-        x=results_df['ECO'],  
-        y=results_df['Draws'], 
-        name="Empates", 
-        marker_color="gray", 
-        text=results_df['Opening'],  
-        textposition="none",
-        hovertemplate="<b>%{text}</b><br>Empates: %{y}<extra></extra>"
-    ))
-
-    fig.update_layout(
-        barmode="stack",
-        xaxis_title="Código ECO",
-        yaxis_title="Número de Partidas",
-        template="ggplot2",
-        showlegend=True
-    )
-
-    return fig
-
-
-
-
-def player_color_advantage(player_name):
-    white_games = details_df[details_df["White_Player"] == player_name]
-    black_games = details_df[details_df["Black_Player"] == player_name]
-    
-    white_wins = (white_games["Result"] == "1-0").sum()
-    white_losses = (white_games["Result"] == "0-1").sum()
-    white_draws = (white_games["Result"] == "1/2-1/2").sum()
-    
-    black_wins = (black_games["Result"] == "0-1").sum()
-    black_losses = (black_games["Result"] == "1-0").sum()
-    black_draws = (black_games["Result"] == "1/2-1/2").sum()
-
-    labels = ["Victorias", "Empates", "Derrotas"]
-    colors = ["#00FF00", "#FFFF66", "#FF0000"]
-
-    fig_white = go.Figure()
-    fig_white.add_trace(go.Pie(
-        labels=labels, 
-        values=[white_wins, white_draws, white_losses], 
-        marker=dict(colors=colors),
-        textinfo="label+percent",
-        hole=0.4
-    ))
-
-    fig_black = go.Figure()
-    fig_black.add_trace(go.Pie(
-        labels=labels, 
-        values=[black_wins, black_draws, black_losses], 
-        marker=dict(colors=colors),
-        textinfo="label+percent",
-        hole=0.4
-    ))
-
-    return fig_white, fig_black
-
-def get_player_info(player_name):
-    player_info = details_df[
-        (details_df["White_Player"] == player_name) | (details_df["Black_Player"] == player_name)
-    ]
-    
-    if not player_info.empty:
-        player_elo = player_info.iloc[0]["White_Elo"] if "White_Elo" in player_info else "Desconocido"
-        fide_id = player_info.iloc[0]["White_Fide_ID"] if "White_Fide_ID" in player_info else "No disponible"
-    else:
-        player_elo = "Desconocido"
-        fide_id = "No disponible"
-    
-    return player_elo, fide_id
-
-
-
-def engine_evaluation(round_number, show_colors=True):
-    game_moves = moves_df[moves_df["Round"] == round_number].copy()
-    if game_moves.empty:
-        return go.Figure()
-
-    game_moves["Color Order"] = game_moves["Color"].map({"White": 0, "Black": 1})
-    game_moves = game_moves.sort_values(by=["Move Number", "Color Order"]).drop(columns=["Color Order"])
-    game_moves["Adjusted Move Number"] = game_moves["Move Number"] + game_moves["Color"].map({"White": 0, "Black": 0.5})
-
-    move_numbers = game_moves["Adjusted Move Number"]
-    evaluations = game_moves["Evaluation"]
-
-    def categorize_eval(eval_value):
-        if eval_value >= 1.6:
-            return "Decisiva Mejor", "white"
-        elif eval_value >= 0.7:
-            return "Clara Mejor", "white"
-        elif eval_value >= 0.3:
-            return "Ligera Mejor", "white"
-        elif eval_value > -0.3:
-            return "Igualdad", "gray"
-        elif eval_value >= -0.69:
-            return "Ligera Peor", "black"
-        elif eval_value >= -1.59:
-            return "Clara Peor", "black"
-        else:
-            return "Decisiva Peor", "black"
-
-    game_moves[["Evaluation Category", "Advantage Color"]] = game_moves["Evaluation"].apply(lambda x: pd.Series(categorize_eval(x)))
-
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Scatter(
-        x=move_numbers,
-        y=evaluations,
-        mode='lines+markers',
-        line=dict(color='gray', width=2),
-        marker=dict(size=8, color=game_moves["Advantage Color"], line=dict(width=1, color='black')),
-        name="",
-        hovertemplate="<b>Jugada:</b> %{x}<br>"
-                      "<b>Evaluación:</b> %{y}<br>"
-                      "<b>Estado:</b> %{customdata[0]}<br>"
-                      "<b>Jugador:</b> %{customdata[1]}",
-        customdata=list(zip(game_moves["Evaluation Category"], game_moves["Color"])),
-        showlegend=False
-    ))
-
-    fig.add_shape(
-        type="line", x0=0, x1=max(move_numbers), y0=0, y1=0,
-        line=dict(color="black", width=2, dash="dash")
-    )
-
-    fig.update_layout(
-        xaxis_title="Número de Jugada",
-        yaxis_title="Evaluación",
-        template="ggplot2",
-        legend_title="Estado de la Evaluación"
-    )
-
-    return fig
-
-def plot_player_times(round_number):
-    game_moves = moves_df[moves_df["Round"] == round_number].copy()
-
-    color_map = {"White": "white", "Black": "black"}
-
-    game_moves["Time (formatted)"] = game_moves["Time (seconds)"].apply(
-        lambda x: str(timedelta(seconds=x))
-    )
-
-    time_interval = 1200
-    max_time = game_moves["Time (seconds)"].max()
-    
-    tick_vals = list(range(0, int(max_time) + 1, time_interval))
-    tick_labels = [str(timedelta(seconds=t)) for t in tick_vals]
-    
-    game_moves["Jugador"] = game_moves["Color"].replace({"White": "Blancas", "Black": "Negras"})
-
-    fig = px.line(
-        game_moves,
-        x="Move Number",
-        y="Time (seconds)",
-        color="Color",
-        color_discrete_map=color_map,
-        markers=True,
-        labels={"Time (formatted)": "Tiempo", "Time (seconds)": "Tiempo restante (HH:MM:ss)", 
-                "Move Number": "Número de Jugada", "Color": "Jugador"},
-        hover_data={
-            "Time (seconds)": False,
-            "Time (formatted)": True,
-            "Jugador": True
-        }
-    )
-
-    fig.update_traces(
-        marker=dict(
-            size=8,
-            line=dict(width=1, color="black")
-        )
-    )
-
-    fig.update_layout(
-        showlegend=False,
-        xaxis=dict(showgrid=True),
-        yaxis=dict(
-            showgrid=True,
-            tickmode="array",
-            tickvals=tick_vals,
-            ticktext=tick_labels,
-            ticks="outside"
-        ),
-        template="ggplot2"
-    )
-
-    return fig
-
-
-def format_time(seconds):
-    """Convierte segundos a formato mm:ss"""
-    minutes = int(seconds // 60)
-    secs = int(seconds % 60)
-    return f"{minutes:02d}:{secs:02d}"
-
-def time_vs_eval_change_single_game(moves_df, round_number, num_ticks=10):
-    game_moves = moves_df[moves_df["Round"] == round_number].copy()
-
-    game_moves["Time (seconds)"] = pd.to_numeric(game_moves["Time (seconds)"], errors="coerce")
-    game_moves.dropna(subset=["Evaluation", "Time (seconds)"], inplace=True)
-
-    game_moves["Time Net"] = game_moves["Time (seconds)"] - 30
-    game_moves["Time Net"] = game_moves["Time Net"].apply(lambda x: max(x, 0))
-
-    game_moves["Color Order"] = game_moves["Color"].map({"White": 0, "Black": 1})
-    game_moves.sort_values(by=["Move Number", "Color Order"], inplace=True)
-    game_moves.drop(columns=["Color Order"], inplace=True)
-
-    game_moves["Time Difference"] = - (game_moves["Time Net"] - game_moves.groupby("Color")["Time (seconds)"].shift(1))
-    game_moves["Eval Change"] = game_moves["Evaluation"].diff()
-    game_moves.dropna(subset=["Time Difference", "Eval Change"], inplace=True)
-
-    # Convertir tiempo a valores absolutos y aplicar formato mm:ss
-    game_moves["Tiempo Diferencia Abs"] = game_moves["Time Difference"].abs()
-    game_moves["Tiempo Diferencia (mm:ss)"] = game_moves["Tiempo Diferencia Abs"].apply(format_time)  # Para tooltip
-
-    # Seleccionar un número limitado de ticks en el eje X
-    tick_values = np.linspace(game_moves["Tiempo Diferencia Abs"].min(), game_moves["Tiempo Diferencia Abs"].max(), num_ticks)
-    tick_labels = [format_time(tick) for tick in tick_values]
-
-    fig = px.scatter(
-        game_moves,
-        x="Tiempo Diferencia Abs",  # Mantener valores numéricos para ordenar
-        y="Eval Change",
-        color="Color",
-        hover_data={"Tiempo Diferencia (mm:ss)": True, "Tiempo Diferencia Abs": False},  # Mostrar solo el formateado
-        labels={
-            "Tiempo Diferencia Abs": "Tiempo Neto en la Jugada (segundos)",
-            "Eval Change": "Cambio en Evaluación",
-            "Color": "Color de las Piezas"
-        },
-        color_discrete_map={"White": "white", "Black": "black"},
-        template="ggplot2"
-    )
-
-    fig.update_layout(
-        xaxis=dict(
-            tickmode="array",
-            tickvals=tick_values.tolist(),  # Usar valores limitados
-            ticktext=tick_labels,  # Mostrar formato mm:ss
-            title="Tiempo Neto en la Jugada (mm:ss)"
-        )
-    )
-
-    fig.update_traces(
-        marker=dict(
-            size=8,
-            line=dict(width=1, color="black")
-        )
-    )
-
-    fig.add_hline(y=0, line_dash="dash", line_color="black")
-
-    return fig
-
-def elo_vs_result(details_df):
-    details_df_clean = details_df.dropna(subset=["Result"])
-
-    details_df_clean['Result'] = details_df_clean['Result'].map({
-        '1-0': 'Victoria Blancas',
-        '0-1': 'Victoria Negras',
-        '1/2-1/2': 'Empate'
-    })
-
-    details_df_clean = details_df_clean[['White_Elo', 'Black_Elo', 'Result']]
-
-    min_elo = min(details_df_clean["White_Elo"].min(), details_df_clean["Black_Elo"].min())
-    max_elo = max(details_df_clean["White_Elo"].max(), details_df_clean["Black_Elo"].max())
-
-    fig = px.scatter(
-        details_df_clean,
-        x="White_Elo",
-        y="Black_Elo",
-        color="Result",
-        labels={
-            "White_Elo": "ELO del Jugador de Blancas",
-            "Black_Elo": "ELO del Jugador de Negras",
-            "Result": "Resultado"
-        },
-        color_discrete_map={
-            "Victoria Blancas": "white",
-            "Victoria Negras": "black",
-            "Empate": "gray"
-        },
-        template="ggplot2"
-    )
-
-    fig.update_traces(
-        marker=dict(
-            size=8,
-            line=dict(width=1, color="black")
-        )
-    )
-
-    fig.add_trace(
-        dict(
-            type="scatter",
-            x=[min_elo, max_elo],
-            y=[min_elo, max_elo],
-            mode="lines",
-            line=dict(color="gray", dash="dash"),
-            showlegend=False
-        )
-    )
-
-    return fig
-
-
-def categorize_stockfish_eval(eval_value, is_white):
-    if not is_white:
-        eval_value = -eval_value
-
-    if eval_value >= 1.6:
-        return "Decisiva Mejor"
-    elif eval_value >= 0.7:
-        return "Clara Mejor"
-    elif eval_value >= 0.3:
-        return "Ligera Mejor"
-    elif eval_value > -0.3:
-        return "Igualdad"
-    elif eval_value >= -0.69:
-        return "Ligera Peor"
-    elif eval_value >= -1.59:
-        return "Clara Peor"
-    else:
-        return "Decisiva Peor"
-
-def evaluation_distribution_plotly(details_df, moves_df):
-    merged_df = moves_df.merge(details_df, on="Round", how="left")
-
-    merged_df["Player"] = merged_df.apply(
-        lambda row: row["White_Player"] if row["Move Number"] % 2 != 0 else row["Black_Player"],
-        axis=1
-    )
-
-    merged_df["Is_White"] = merged_df["Move Number"] % 2 != 0
-
-    merged_df["Eval Category"] = merged_df.apply(
-        lambda row: categorize_stockfish_eval(row["Evaluation"], row["Is_White"]),
-        axis=1
-    )
-
-    eval_counts = merged_df.groupby(["Player", "Eval Category"]).size().unstack(fill_value=0)
-    eval_percentage = eval_counts.div(eval_counts.sum(axis=1), axis=0) * 100
-
-    eval_order = ["Decisiva Peor", "Clara Peor", "Ligera Peor", "Igualdad", "Ligera Mejor", "Clara Mejor", "Decisiva Mejor"]
-    eval_percentage = eval_percentage[eval_order].reset_index()
-
-    eval_data = eval_percentage.melt(id_vars="Player", var_name="Estado de la Posición", value_name="Porcentaje")
-
-    color_map = {
-        "Decisiva Peor": "#8B0000",
-        "Clara Peor": "#FF0000",
-        "Ligera Peor": "#FFA07A",
-        "Igualdad": "#EEE9E9",
-        "Ligera Mejor": "#BCE3B1",
-        "Clara Mejor": "#76C95F",
-        "Decisiva Mejor": "#3D6831"
-    }
-
-    fig = px.bar(
-        eval_data,
-        x="Player",
-        y="Porcentaje",
-        color="Estado de la Posición",
-        labels={"Player": "Jugador"},
-        color_discrete_map=color_map
-    )
-
-    fig.update_layout(
-        showlegend=False,
-        barmode="stack",
-        xaxis_title="Jugador",
-        yaxis_title="Porcentaje de Jugadas",
-        xaxis_tickangle=-45
-    )
-
-    return fig
 
 
 
@@ -643,6 +140,17 @@ app_ui = ui.page_fluid(
         ui.card(
             ui.card_header("Relación entre Tiempo Consumido y Cambio en Evaluación"),
             ui.output_ui("output_graph7"), full_screen=True
+        ),
+        ui.layout_columns(
+            ui.card(
+                ui.card_header("Mapa de calor de movimientos de Blancas"),
+                ui.output_ui("heatmap_white"), full_screen=True
+            ),
+            ui.card(
+                ui.card_header("Mapa de calor de movimientos de Negras"),
+                ui.output_ui("heatmap_black"), full_screen=True
+            ),
+            col_widths=[6, 6]
         )
     ),
 )
@@ -668,7 +176,7 @@ def server(input, output, session):
 
     @render.ui
     def player_elo_card():
-        player_elo, _ = get_player_info(input.player())
+        player_elo, _ = get_player_info(input.player(), details_df)
         return ui.card(
             ui.card_header(ui.HTML(f"{fa.icon_svg('chart-line')} ELO")),
             ui.card_body(ui.p(str(player_elo)))
@@ -676,7 +184,7 @@ def server(input, output, session):
 
     @render.ui
     def player_fide_id_card():
-        _, fide_id = get_player_info(input.player())
+        _, fide_id = get_player_info(input.player(), details_df)
         return ui.card(
             ui.card_header(ui.HTML(f"{fa.icon_svg('id-card')} FIDE ID")),
             ui.card_body(ui.p(str(fide_id)))
@@ -720,13 +228,13 @@ def server(input, output, session):
     @render.ui
     def output_graph4i():
         player_name = input.player()
-        fig_white, _ = player_color_advantage(player_name)
+        fig_white, _ = player_color_advantage(player_name, details_df)
         return fig_white
 
     @render.ui
     def output_graph4ii():
         player_name = input.player()
-        _, fig_black = player_color_advantage(player_name)
+        _, fig_black = player_color_advantage(player_name, details_df)
         return fig_black
     
     @render.ui
@@ -740,7 +248,7 @@ def server(input, output, session):
 
         round_number = round_info[0]
         
-        fig = engine_evaluation(round_number)
+        fig = engine_evaluation(round_number, moves_df)
         return fig
 
     @render.ui
@@ -754,7 +262,7 @@ def server(input, output, session):
 
         round_number = round_info[0]
         
-        fig = plot_player_times(round_number)
+        fig = plot_player_times(round_number, moves_df)
         return fig
     
     @render.ui
@@ -784,6 +292,32 @@ def server(input, output, session):
         return fig
 
     
+    @render.ui
+    def heatmap_white():
+        selected_game_id = input.selected_game()
+        
+        round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
+        
+        if len(round_info) == 0:
+            return "No se encontró la ronda para esta partida."
+
+        round_number = round_info[0]
+        return create_chess_heatmap_plotly(moves_df, round_number, "White")
+    
+    
+    @render.ui
+    def heatmap_black():
+        selected_game_id = input.selected_game()
+        
+        round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
+        
+        if len(round_info) == 0:
+            return "No se encontró la ronda para esta partida."
+
+        round_number = round_info[0]
+        return create_chess_heatmap_plotly(moves_df, round_number, "Black")
+
+
 
     @output
     @render.text
@@ -814,9 +348,6 @@ def server(input, output, session):
             result = '½'
         
         return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: black;">{result}</span>')  
-
-
-
 
 
 app = App(app_ui, server)
