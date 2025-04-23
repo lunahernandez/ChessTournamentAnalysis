@@ -8,8 +8,18 @@ from utils.plots import (players_performance_comparison, players_wins_comparison
                          engine_evaluation, plot_player_times, time_vs_eval_change_single_game,
                          elo_vs_result, evaluation_distribution_plotly, create_chess_heatmap_plotly)
 
-client = MongoClient("mongodb://admin:password@mongodb:27017/")
-db = client["ChessTournamentAnalysis"]
+from pymongo.errors import ServerSelectionTimeoutError
+
+try:
+    client = MongoClient("mongodb://localhost:27017/")
+    client.server_info()  # Esto forza una conexión real a MongoDB
+    db = client["ChessTournamentAnalysis"]
+    print("Conexión a MongoDB exitosa.")
+except ServerSelectionTimeoutError as e:
+    print("No se pudo conectar a MongoDB. Verifica que el contenedor esté corriendo y que la URI sea correcta.")
+    print(f"Error: {e}")
+    exit(1)
+
 app_dir = Path(__file__).parent
 
 players_df = pd.DataFrame(list(db["Players"].find()))
@@ -106,9 +116,7 @@ app_ui = ui.page_sidebar(
  ui.nav_panel("Partidas",  
     ui.page_sidebar(
         ui.sidebar(
-            ui.input_select("selected_game", "Selecciona una partida:", 
-                            {game: game for game in details_df["Event"].tolist()}),
-            
+               ui.output_ui("dropdown_partidas"),
             ui.card(
                 ui.card_header(ui.row([
                     ui.column(10, [
@@ -210,12 +218,16 @@ def server(input, output, session):
             ui.card_header(ui.HTML(f"{fa.icon_svg('id-card')} FIDE ID")),
             ui.card_body(ui.p(str(fide_id)))
         )
+
     @output
     @render.text
     def white_player_info():
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
-        game_details = details_df[(details_df["Event"] == input.selected_game()) & 
-                                (details_df["TournamentId"] == tournament_id)]
+        selected_round = str(input.selected_game()).strip()
+        game_details = details_df[
+            (details_df["Round"].astype(str).str.strip() == selected_round) &
+            (details_df["TournamentId"] == tournament_id)
+        ]
         
         if game_details.empty:
             return "No disponible"
@@ -227,12 +239,22 @@ def server(input, output, session):
         return ui.HTML(f"Nombre: {player_name}<br>ELO: {elo}<br>FIDE ID: {fide_id}")
 
 
+
     @output
     @render.text
     def black_player_info():
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
-        game_details = details_df[(details_df["Event"] == input.selected_game()) & 
-                           (details_df["TournamentId"] == tournament_id)]
+        selected_round = str(input.selected_game()).strip()
+        game_details = details_df[
+            (details_df["Round"].astype(str).str.strip() == selected_round) &
+            (details_df["TournamentId"] == tournament_id)
+        ]
+
+        print(f"[DEBUG] Torneo seleccionado: {input.selected_tournament()} → ID: {tournament_id}")
+        print(f"[DEBUG] Partida seleccionada: {input.selected_game()}")
+        print(f"[DEBUG] Detalles de la partida: {game_details}")
+        print(f"[DEBUG] selected_round: {selected_round}")
+        print(f"[DEBUG] Rounds disponibles: {details_df['Round'].astype(str).unique()}")
         if game_details.empty:
             return "No disponible"
         player_name = game_details["Black_Player"].values[0]
@@ -280,48 +302,41 @@ def server(input, output, session):
     def output_graph5():
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
-        selected_game_id = input.selected_game()
-        
-        round_info = moves[moves["Event"] == selected_game_id]["Round"].unique()
-        
-        if len(round_info) == 0:
+        selected_round = input.selected_game()
+
+        # Asegura que sea str por si acaso
+        selected_round = str(selected_round).strip()
+
+        if selected_round not in moves["Round"].astype(str).values:
             return "No se encontró la ronda para esta partida."
 
-        round_number = round_info[0]
-        
-        fig = engine_evaluation(round_number, moves)
+        fig = engine_evaluation(selected_round, moves)
         return fig
 
     @render.ui
     def output_graph6():
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
-        selected_game_id = input.selected_game()
-        
-        round_info = moves[moves["Event"] == selected_game_id]["Round"].unique()
-        
-        if len(round_info) == 0:
+        selected_round = str(input.selected_game()).strip()
+
+        if selected_round not in moves["Round"].astype(str).values:
             return "No se encontró la ronda para esta partida."
 
-        round_number = round_info[0]
-        
-        fig = plot_player_times(round_number, moves)
+        fig = plot_player_times(selected_round, moves)
         return fig
+
+
     
     @render.ui
     def output_graph7():
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
-        selected_game_id = input.selected_game()
-        
-        round_info = moves[moves["Event"] == selected_game_id]["Round"].unique()
-        
-        if len(round_info) == 0:
+        selected_round = str(input.selected_game()).strip()
+
+        if selected_round not in moves["Round"].astype(str).values:
             return "No se encontró la ronda para esta partida."
 
-        round_number = round_info[0]
-        
-        fig = time_vs_eval_change_single_game(moves, round_number)
+        fig = time_vs_eval_change_single_game(moves, selected_round)
         return fig
     
 
@@ -346,39 +361,38 @@ def server(input, output, session):
     def heatmap_white():
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
-        selected_game_id = input.selected_game()
-        
-        round_info = moves[moves["Event"] == selected_game_id]["Round"].unique()
-        
-        if len(round_info) == 0:
+        selected_round = str(input.selected_game()).strip()
+
+        if selected_round not in moves["Round"].astype(str).values:
             return "No se encontró la ronda para esta partida."
 
-        round_number = round_info[0]
-        return create_chess_heatmap_plotly(moves, round_number, "White")
-    
-    
+        return create_chess_heatmap_plotly(moves, selected_round, "White")
+
+
     @render.ui
     def heatmap_black():
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
-        selected_game_id = input.selected_game()
-        
-        round_info = moves[moves["Event"] == selected_game_id]["Round"].unique()
-        
-        if len(round_info) == 0:
+        selected_round = str(input.selected_game()).strip()
+
+        if selected_round not in moves["Round"].astype(str).values:
             return "No se encontró la ronda para esta partida."
 
-        round_number = round_info[0]
-        return create_chess_heatmap_plotly(moves, round_number, "Black")
-
+        return create_chess_heatmap_plotly(moves, selected_round, "Black")
 
 
     @output
     @render.text
     def black_player_result():
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
-        game_details = details_df[(details_df["Event"] == input.selected_game()) & 
-                           (details_df["TournamentId"] == tournament_id)]
+
+        details_df["Round"] = details_df["Round"].astype(str).str.strip()
+        selected_round = str(input.selected_game()).strip()
+        game_details = details_df[
+            (details_df["Round"].astype(str).str.strip() == selected_round) &
+            (details_df["TournamentId"] == tournament_id)
+        ]
+
         if game_details.empty:
             return "No disponible"
         
@@ -390,12 +404,18 @@ def server(input, output, session):
         
         return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: white;">{result}</span>')
 
+
     @output
     @render.text
     def white_player_result():
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
-        game_details = details_df[(details_df["Event"] == input.selected_game()) & 
-                           (details_df["TournamentId"] == tournament_id)]
+
+        selected_round = str(input.selected_game()).strip()
+        game_details = details_df[
+            (details_df["Round"].astype(str).str.strip() == selected_round) &
+            (details_df["TournamentId"] == tournament_id)
+        ]
+
         if game_details.empty:
             return "No disponible"
         
@@ -405,7 +425,25 @@ def server(input, output, session):
         if result not in ['1', '0']:
             result = '½'
         
-        return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: black;">{result}</span>')  
+        return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: black;">{result}</span>')
+    
+    @render.ui
+    def dropdown_partidas():
+        selected_name = input.selected_tournament()
+        if selected_name is None or selected_name not in tournaments_df["Name"].values:
+            return ui.input_select("selected_game", "Selecciona una partida:", {})
+
+        tournament_id = tournaments_df[tournaments_df["Name"] == selected_name]["_id"].values[0]
+        partidas = details_df[details_df["TournamentId"] == tournament_id]
+
+        return ui.input_select(
+            "selected_game",
+            "Selecciona una partida:",
+            {
+                str(row["Round"]).strip(): f'{row["Round"]} - {row["White_Player"]} vs {row["Black_Player"]}'
+                for _, row in partidas.iterrows()
+            }
+        )
 
 
 app = App(app_ui, server)

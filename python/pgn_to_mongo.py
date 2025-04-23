@@ -4,9 +4,6 @@ import chess.pgn
 import re
 import chess.engine
 
-STOCKFISH_PATH = "C:/Program Files/ChessBase/stockfish/stockfish-windows-x86-64-avx2"
-engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
-
 def extract_eval_and_time(comment):
     eval_pattern = r'\[%eval\s*(-?[\d.]+)\]'
     time_pattern = r'\[%clk\s*([\d:]+)\]'
@@ -28,8 +25,9 @@ def convert_time_to_seconds(time):
             return parts[0] * 60 + parts[1]
     return 0
 
-def insert_pgn_to_mongo(pgn_file, tournament_name):
-    client = MongoClient("mongodb://admin:password@host.docker.internal:27017/")
+def insert_pgn_to_mongo(pgn_file, tournament_name, engine_path):
+    engine = chess.engine.SimpleEngine.popen_uci(engine_path)
+    client = MongoClient("mongodb://localhost:27017/")
     db = client["ChessTournamentAnalysis"]
 
     players_set = set()
@@ -77,12 +75,10 @@ def insert_pgn_to_mongo(pgn_file, tournament_name):
                     "Elo": int(black_elo) if black_elo else 0
                 })
 
-            # Insertar apertura si no está
             if (eco, opening_name) not in openings_set:
                 openings_set.add((eco, opening_name))
                 db.Openings.insert_one({"ECO": eco, "Name": opening_name})
 
-            # Insertar detalles de la partida
             details_id = db.Details.insert_one({
                 "TournamentId": tournament_id,
                 "Round": round_pk if round_pk else "Unknown",
@@ -93,7 +89,6 @@ def insert_pgn_to_mongo(pgn_file, tournament_name):
                 "Result": result if result else "Unknown"
             }).inserted_id
 
-            # Insertar movimientos
             move_number = 1
             for i, move in enumerate(game.mainline()):
                 move_obj = move.move
@@ -102,7 +97,7 @@ def insert_pgn_to_mongo(pgn_file, tournament_name):
                 color = "White" if i % 2 == 0 else "Black"
 
                 if evaluation is None:
-                    info = engine.analyse(board, chess.engine.Limit(depth=15))
+                    info = engine.analyse(board, chess.engine.Limit(depth=5))
                     score = info["score"].white()
 
                     if score.is_mate():
@@ -135,7 +130,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Importar un archivo PGN a MongoDB y calcular evaluaciones de jugadas.")
     parser.add_argument("pgn_file", type=str, help="Ruta al archivo PGN a importar.")
     parser.add_argument("-n", "--tournament", type=str, required=True, help="Nombre del torneo a asociar con las partidas.")
-    
+    parser.add_argument("-e", "--engine_path", type=str, required=True, help="Ruta al motor UCI (ej: Stockfish, Lc0, etc).")
+
     args = parser.parse_args()
     
-    insert_pgn_to_mongo(args.pgn_file, args.tournament)
+    insert_pgn_to_mongo(args.pgn_file, args.tournament, args.engine_path)
