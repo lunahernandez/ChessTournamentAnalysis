@@ -15,8 +15,10 @@ app_dir = Path(__file__).parent
 players_df = pd.DataFrame(list(db["Players"].find()))
 details_df = pd.DataFrame(list(db["Details"].find()))
 openings_df = pd.DataFrame(list(db["Openings"].find()))
+tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
 moves_df = pd.DataFrame(list(db["Moves"].find()))
-moves_df = moves_df.merge(details_df[['Round', 'Event']], on='Round', how='left')
+moves_df = moves_df.merge(details_df[['TournamentId', 'Round', 'Event']], on=['Round', 'TournamentId'], how='left')
+
 players_df = players_df.drop_duplicates(subset=["FideId"])
 
 details_df = details_df.merge(players_df[['FideId', 'Name', 'Elo']], left_on="White", right_on="FideId")
@@ -38,8 +40,15 @@ ICONS = {
     "ellipsis": fa.icon_svg("ellipsis"),
 }
 
-app_ui = ui.page_fluid( 
-    ui.h1("Chess Tournament Analysis | Cerrado IM Barcelona Junio 2024", style="text-align:left;"),
+app_ui = ui.page_sidebar(
+    ui.sidebar(
+        ui.input_select("selected_tournament", "Selecciona un torneo:", 
+                        {name: name for name in tournaments_df["Name"]}),
+        open="desktop",
+        title="Torneos"
+    ),
+    ui.page_fluid( 
+    ui.output_ui("tournament_title"),
     ui.navset_tab(
         ui.nav_panel("General",  
             ui.layout_columns(
@@ -162,11 +171,17 @@ app_ui = ui.page_fluid(
     fillable=True,
 )
 
+)
 
 
 
 
 def server(input, output, session):
+    @render.ui
+    def tournament_title():
+        selected = input.selected_tournament()
+        return ui.h1(f"Chess Tournament Analysis | {selected or 'Selecciona un torneo'}", style="text-align:left;")
+
     @render.ui
     def player_name_card():
         return ui.card(
@@ -176,15 +191,21 @@ def server(input, output, session):
 
     @render.ui
     def player_elo_card():
-        player_elo, _ = get_player_info(input.player(), details_df)
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        details_filtered = details_df[details_df["TournamentId"] == tournament_id]
+        player_elo, _ = get_player_info(input.player(), details_filtered)
+        
         return ui.card(
             ui.card_header(ui.HTML(f"{fa.icon_svg('chart-line')} ELO")),
             ui.card_body(ui.p(str(player_elo)))
         )
 
+
     @render.ui
     def player_fide_id_card():
-        _, fide_id = get_player_info(input.player(), details_df)
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        details = details_df[details_df["TournamentId"] == tournament_id]
+        _, fide_id = get_player_info(input.player(), details)
         return ui.card(
             ui.card_header(ui.HTML(f"{fa.icon_svg('id-card')} FIDE ID")),
             ui.card_body(ui.p(str(fide_id)))
@@ -192,18 +213,26 @@ def server(input, output, session):
     @output
     @render.text
     def white_player_info():
-        game_details = details_df[details_df["Event"] == input.selected_game()]
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        game_details = details_df[(details_df["Event"] == input.selected_game()) & 
+                                (details_df["TournamentId"] == tournament_id)]
+        
         if game_details.empty:
             return "No disponible"
+        
         player_name = game_details["White_Player"].values[0]
         elo = game_details["White_Elo"].values[0]
         fide_id = game_details["White_Fide_ID"].values[0]
+        
         return ui.HTML(f"Nombre: {player_name}<br>ELO: {elo}<br>FIDE ID: {fide_id}")
+
 
     @output
     @render.text
     def black_player_info():
-        game_details = details_df[details_df["Event"] == input.selected_game()]
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        game_details = details_df[(details_df["Event"] == input.selected_game()) & 
+                           (details_df["TournamentId"] == tournament_id)]
         if game_details.empty:
             return "No disponible"
         player_name = game_details["Black_Player"].values[0]
@@ -213,116 +242,143 @@ def server(input, output, session):
     
     @render.ui
     def output_graph1():
-        graph_html = players_performance_comparison(details_df)
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        details = details_df[details_df["TournamentId"] == tournament_id]
+        graph_html = players_performance_comparison(details)
         return ui.HTML(graph_html)
     @render.ui
     def output_graph2():
-        graph_html = players_wins_comparison(details_df)
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        details = details_df[details_df["TournamentId"] == tournament_id]
+        graph_html = players_wins_comparison(details)
         return ui.HTML(graph_html)
 
     @render.ui
     def output_graph3():
-        fig = opening_effect(details_df)
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        details = details_df[details_df["TournamentId"] == tournament_id]
+        fig = opening_effect(details)
         return fig
 
     @render.ui
     def output_graph4i():
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        details = details_df[details_df["TournamentId"] == tournament_id]
         player_name = input.player()
-        fig_white, _ = player_color_advantage(player_name, details_df)
+        fig_white, _ = player_color_advantage(player_name, details)
         return fig_white
 
     @render.ui
     def output_graph4ii():
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        details = details_df[details_df["TournamentId"] == tournament_id]
         player_name = input.player()
-        _, fig_black = player_color_advantage(player_name, details_df)
+        _, fig_black = player_color_advantage(player_name, details)
         return fig_black
     
     @render.ui
     def output_graph5():
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        moves = moves_df[moves_df["TournamentId"] == tournament_id]
         selected_game_id = input.selected_game()
         
-        round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
+        round_info = moves[moves["Event"] == selected_game_id]["Round"].unique()
         
         if len(round_info) == 0:
             return "No se encontró la ronda para esta partida."
 
         round_number = round_info[0]
         
-        fig = engine_evaluation(round_number, moves_df)
+        fig = engine_evaluation(round_number, moves)
         return fig
 
     @render.ui
     def output_graph6():
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        moves = moves_df[moves_df["TournamentId"] == tournament_id]
         selected_game_id = input.selected_game()
         
-        round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
+        round_info = moves[moves["Event"] == selected_game_id]["Round"].unique()
         
         if len(round_info) == 0:
             return "No se encontró la ronda para esta partida."
 
         round_number = round_info[0]
         
-        fig = plot_player_times(round_number, moves_df)
+        fig = plot_player_times(round_number, moves)
         return fig
     
     @render.ui
     def output_graph7():
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        moves = moves_df[moves_df["TournamentId"] == tournament_id]
         selected_game_id = input.selected_game()
         
-        round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
+        round_info = moves[moves["Event"] == selected_game_id]["Round"].unique()
         
         if len(round_info) == 0:
             return "No se encontró la ronda para esta partida."
 
         round_number = round_info[0]
         
-        fig = time_vs_eval_change_single_game(moves_df, round_number)
+        fig = time_vs_eval_change_single_game(moves, round_number)
         return fig
     
 
     @render.ui
-    def output_graph8():        
-        fig = elo_vs_result(details_df)
+    def output_graph8():
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        details = details_df[details_df["TournamentId"] == tournament_id]     
+        fig = elo_vs_result(details)
         return fig
 
 
     @render.ui
-    def output_graph9():        
-        fig = evaluation_distribution_plotly(details_df, moves_df)
+    def output_graph9():
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        details = details_df[details_df["TournamentId"] == tournament_id]   
+        moves = moves_df[moves_df["TournamentId"] == tournament_id]
+        fig = evaluation_distribution_plotly(details, moves)
         return fig
 
     
     @render.ui
     def heatmap_white():
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        moves = moves_df[moves_df["TournamentId"] == tournament_id]
         selected_game_id = input.selected_game()
         
-        round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
+        round_info = moves[moves["Event"] == selected_game_id]["Round"].unique()
         
         if len(round_info) == 0:
             return "No se encontró la ronda para esta partida."
 
         round_number = round_info[0]
-        return create_chess_heatmap_plotly(moves_df, round_number, "White")
+        return create_chess_heatmap_plotly(moves, round_number, "White")
     
     
     @render.ui
     def heatmap_black():
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        moves = moves_df[moves_df["TournamentId"] == tournament_id]
         selected_game_id = input.selected_game()
         
-        round_info = moves_df[moves_df["Event"] == selected_game_id]["Round"].unique()
+        round_info = moves[moves["Event"] == selected_game_id]["Round"].unique()
         
         if len(round_info) == 0:
             return "No se encontró la ronda para esta partida."
 
         round_number = round_info[0]
-        return create_chess_heatmap_plotly(moves_df, round_number, "Black")
+        return create_chess_heatmap_plotly(moves, round_number, "Black")
 
 
 
     @output
     @render.text
     def black_player_result():
-        game_details = details_df[details_df["Event"] == input.selected_game()]
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        game_details = details_df[(details_df["Event"] == input.selected_game()) & 
+                           (details_df["TournamentId"] == tournament_id)]
         if game_details.empty:
             return "No disponible"
         
@@ -337,7 +393,9 @@ def server(input, output, session):
     @output
     @render.text
     def white_player_result():
-        game_details = details_df[details_df["Event"] == input.selected_game()]
+        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        game_details = details_df[(details_df["Event"] == input.selected_game()) & 
+                           (details_df["TournamentId"] == tournament_id)]
         if game_details.empty:
             return "No disponible"
         

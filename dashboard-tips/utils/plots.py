@@ -558,8 +558,8 @@ def create_chess_heatmap_plotly(moves_df, round_number, color):
         xaxis_title='Columna',
         yaxis_title='Fila',
         yaxis_autorange='reversed',
-        width=500,
-        height=500,
+        width=450,
+        height=450,
         shapes=shapes,
     )
 
