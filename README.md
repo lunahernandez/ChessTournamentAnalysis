@@ -46,7 +46,9 @@ python pgn_to_mongo.py \<ruta_al_pgn\> -n \<nombre_del_torneo\> -engine_path \<r
    - `\<nombre_del_torneo\>`: Nombre del torneo que se va a añadir a la base de datos.
    - `\<ruta_al_motor_de_ajedrez\>`: Ruta al motor de ajedrez que se ha descargado.
 
-Ejemplo de ejecución: python pgn_to_mongo.py ./data/junio_2024.pgn -n "Cerrado IM Junio 2024" -e "C:/Program Files/Stockfish/stockfish-windows-x86-64-avx2.exe"
+Ejemplo de ejecución: 
+```bash
+python pgn_to_mongo.py ./data/junio_2024.pgn -n "Cerrado IM Junio 2024" -e "C:/Program Files/Stockfish/stockfish-windows-x86-64-avx2.exe"
 
 ```
 4. Acceder a [localhost:5000](http://localhost:5000/)

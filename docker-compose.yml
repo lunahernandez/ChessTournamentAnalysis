@@ -7,7 +7,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongodb_data:/data/db  # Volumen persistente para MongoDB
+      - mongodb_data:/data/db
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password
@@ -15,14 +15,14 @@ services:
 
   python-init:
     build:
-      context: ./python  # El contexto es la carpeta 'python' donde está el Dockerfile de inicialización
-      dockerfile: Dockerfile  # Usamos el Dockerfile dentro de la carpeta python
+      context: ./python
+      dockerfile: Dockerfile
     container_name: python_init
     depends_on:
       - mongodb
     volumes:
-      - ./python:/mnt/python  # Volumen donde copiamos los archivos Python
-      - ./data:/mnt/data  # Aseguramos que los datos estén accesibles
+      - ./python:/mnt/python
+      - ./data:/mnt/data
     restart: "no"
 
   app-web:
@@ -44,4 +44,4 @@ networks:
     driver: bridge
 
 volumes:
-  mongodb_data:  # Volumen persistente para MongoDB, para almacenar datos
+  mongodb_data:

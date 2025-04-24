@@ -11,8 +11,8 @@ from utils.plots import (players_performance_comparison, players_wins_comparison
 from pymongo.errors import ServerSelectionTimeoutError
 
 try:
-    client = MongoClient("mongodb://localhost:27017/")
-    client.server_info()  # Esto forza una conexión real a MongoDB
+    client = MongoClient("mongodb://admin:password@host.docker.internal:27017/")
+    client.server_info()
     db = client["ChessTournamentAnalysis"]
     print("Conexión a MongoDB exitosa.")
 except ServerSelectionTimeoutError as e:
