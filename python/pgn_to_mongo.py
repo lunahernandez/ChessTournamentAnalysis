@@ -62,17 +62,19 @@ def insert_pgn_to_mongo(pgn_file, tournament_name, engine_path):
             if (white_name, white_fide_id, white_elo) not in players_set:
                 players_set.add((white_name, white_fide_id, white_elo))
                 db.Players.insert_one({
-                    "Name": white_name, 
-                    "FideId": white_fide_id, 
-                    "Elo": int(white_elo) if white_elo else 0
+                    "Name": white_name,
+                    "FideId": white_fide_id,
+                    "Elo": int(white_elo) if white_elo else 0,
+                    "TournamentId": tournament_id
                 })
 
             if (black_name, black_fide_id, black_elo) not in players_set:
                 players_set.add((black_name, black_fide_id, black_elo))
                 db.Players.insert_one({
-                    "Name": black_name, 
-                    "FideId": black_fide_id, 
-                    "Elo": int(black_elo) if black_elo else 0
+                    "Name": black_name,
+                    "FideId": black_fide_id,
+                    "Elo": int(black_elo) if black_elo else 0,
+                    "TournamentId": tournament_id
                 })
 
             if (eco, opening_name) not in openings_set:

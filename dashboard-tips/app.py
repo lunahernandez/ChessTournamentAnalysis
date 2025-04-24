@@ -93,8 +93,8 @@ app_ui = ui.page_sidebar(
         ui.nav_panel("Individual",  
             ui.page_sidebar(
                 ui.sidebar(
-                    ui.input_select("player", "Selecciona un jugador:", {name: name for name in players_df["Name"].tolist()}),
-                    open="desktop",
+                    ui.output_ui("player_dropdown"),
+                    open="desktop"
                 ),
                 ui.layout_columns(
                     ui.output_ui("player_name_card"),
@@ -443,6 +443,21 @@ def server(input, output, session):
                 str(row["Round"]).strip(): f'{row["Round"]} - {row["White_Player"]} vs {row["Black_Player"]}'
                 for _, row in partidas.iterrows()
             }
+        )
+    
+    @render.ui
+    def player_dropdown():
+        selected_tournament = input.selected_tournament()
+        if selected_tournament not in tournaments_df["Name"].values:
+            return ui.input_select("player", "Selecciona un jugador:", {})
+
+        tournament_id = tournaments_df[tournaments_df["Name"] == selected_tournament]["_id"].values[0]
+        filtered_players = players_df[players_df["TournamentId"] == tournament_id]
+
+        return ui.input_select(
+            "player",
+            "Selecciona un jugador:",
+            {name: name for name in filtered_players["Name"].dropna().unique()}
         )
 
 
