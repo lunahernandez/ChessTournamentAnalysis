@@ -250,11 +250,6 @@ def server(input, output, session):
             (details_df["TournamentId"] == tournament_id)
         ]
 
-        print(f"[DEBUG] Torneo seleccionado: {input.selected_tournament()} → ID: {tournament_id}")
-        print(f"[DEBUG] Partida seleccionada: {input.selected_game()}")
-        print(f"[DEBUG] Detalles de la partida: {game_details}")
-        print(f"[DEBUG] selected_round: {selected_round}")
-        print(f"[DEBUG] Rounds disponibles: {details_df['Round'].astype(str).unique()}")
         if game_details.empty:
             return "No disponible"
         player_name = game_details["Black_Player"].values[0]
