@@ -444,16 +444,18 @@ def server(input, output, session):
     def player_dropdown():
         selected_tournament = input.selected_tournament()
         if selected_tournament not in tournaments_df["Name"].values:
-            return ui.input_select("player", "Selecciona un jugador:", {})
+            return ui.input_selectize("player", "Selecciona un jugador:", choices={})
 
         tournament_id = tournaments_df[tournaments_df["Name"] == selected_tournament]["_id"].values[0]
         filtered_players = players_df[players_df["TournamentId"] == tournament_id]
 
-        return ui.input_select(
+        return ui.input_selectize(
             "player",
             "Selecciona un jugador:",
-            {name: name for name in filtered_players["Name"].dropna().unique()}
+            choices={name: name for name in filtered_players["Name"].dropna().unique()},
+            options={"placeholder": "Escribe para filtrar..."}
         )
+
 
 
 app = App(app_ui, server)
