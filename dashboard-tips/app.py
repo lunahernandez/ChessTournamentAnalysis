@@ -71,7 +71,7 @@ app_ui = ui.page_sidebar(
                 col_widths=[6, 6]
             ),
             ui.card(
-                    ui.card_header("Comparación de Resultados por Apertura"),
+                    ui.card_header("Comparación de Resultados por Aperturas Más Jugadas"),
                     ui.output_ui("output_graph3"), full_screen=True
                 ),
                 

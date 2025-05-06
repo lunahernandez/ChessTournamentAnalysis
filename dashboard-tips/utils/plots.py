@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 def players_performance_comparison(details_df):
     players = pd.concat([details_df["White_Player"], details_df["Black_Player"]]).unique()
     stats_list = []
+
     for player in players:
         white_wins = ((details_df["White_Player"] == player) & (details_df["Result"] == "1-0")).sum()
         white_draws = ((details_df["White_Player"] == player) & (details_df["Result"] == "1/2-1/2")).sum()
@@ -19,21 +20,38 @@ def players_performance_comparison(details_df):
 
         stats_list.append({
             "Player": player,
-            "Wins with White": white_wins + white_draws * 0.5,
-            "Wins with Black": black_wins + black_draws * 0.5
+            "White_Score": white_wins + white_draws * 0.5,
+            "Black_Score": black_wins + black_draws * 0.5
         })
 
     players_stats = pd.DataFrame(stats_list)
-    players_stats["Total Score"] = players_stats["Wins with White"] + players_stats["Wins with Black"]
+    players_stats["Total Score"] = players_stats["White_Score"] + players_stats["Black_Score"]
     players_stats = players_stats.sort_values(by="Total Score", ascending=False)
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with White"], name="Puntuación con Blancas", marker_color="white", text=players_stats["Wins with White"], textposition="none", hoverinfo="text"))
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with Black"], name="Puntuación con Negras", marker_color="black", text=players_stats["Wins with Black"], textposition="none", hoverinfo="text"))
+
+    fig.add_trace(go.Bar(
+        x=players_stats["Player"],
+        y=players_stats["White_Score"],
+        name="Puntuación con Blancas",
+        marker_color="white",
+        text=players_stats.apply(lambda row: f"{row['Player']}<br>Blancas: {row['White_Score']:.1f}", axis=1),
+        hovertemplate="%{text}<extra></extra>",
+        textposition="none"
+    ))
+
+    fig.add_trace(go.Bar(
+        x=players_stats["Player"],
+        y=players_stats["Black_Score"],
+        name="Puntuación con Negras",
+        marker_color="black",
+        text=players_stats.apply(lambda row: f"{row['Player']}<br>Negras: {row['Black_Score']:.1f}", axis=1),
+        hovertemplate="%{text}<extra></extra>",
+        textposition="none"
+    ))
 
     fig.update_layout(
         barmode="stack",
-        title="Comparación de Puntuación Obtenida por Jugador",
         xaxis_title="Jugador",
         yaxis_title="Puntuación Obtenida",
         xaxis_tickangle=-45,
@@ -47,23 +65,44 @@ def players_performance_comparison(details_df):
 def players_wins_comparison(details_df):
     players = pd.concat([details_df["White_Player"], details_df["Black_Player"]]).unique()
     stats_list = []
+
     for player in players:
         white_wins = ((details_df["White_Player"] == player) & (details_df["Result"] == "1-0")).sum()
         black_wins = ((details_df["Black_Player"] == player) & (details_df["Result"] == "0-1")).sum()
-
-        stats_list.append({"Player": player, "Wins with White": white_wins, "Wins with Black": black_wins})
+        stats_list.append({
+            "Player": player,
+            "Wins with White": white_wins,
+            "Wins with Black": black_wins
+        })
 
     players_stats = pd.DataFrame(stats_list)
     players_stats["Total Wins"] = players_stats["Wins with White"] + players_stats["Wins with Black"]
     players_stats = players_stats.sort_values(by="Total Wins", ascending=False)
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with White"], name="Victorias con Blancas", marker_color="white", text=players_stats["Wins with White"], textposition="none", hoverinfo="text"))
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with Black"], name="Victorias con Negras", marker_color="black", text=players_stats["Wins with Black"], textposition="none", hoverinfo="text"))
+
+    fig.add_trace(go.Bar(
+        x=players_stats["Player"],
+        y=players_stats["Wins with White"],
+        name="Victorias con Blancas",
+        marker_color="white",
+        text=players_stats.apply(lambda row: f"{row['Player']}<br>Blancas: {row['Wins with White']}", axis=1),
+        hovertemplate="%{text}<extra></extra>",
+        textposition="none"
+    ))
+
+    fig.add_trace(go.Bar(
+        x=players_stats["Player"],
+        y=players_stats["Wins with Black"],
+        name="Victorias con Negras",
+        marker_color="black",
+        text=players_stats.apply(lambda row: f"{row['Player']}<br>Negras: {row['Wins with Black']}", axis=1),
+        hovertemplate="%{text}<extra></extra>",
+        textposition="none"
+    ))
 
     fig.update_layout(
         barmode="stack",
-        title="Comparación de Victorias por Jugador",
         xaxis_title="Jugador",
         yaxis_title="Partidas Ganadas",
         xaxis_tickangle=-45,
