@@ -37,8 +37,6 @@ details_df = details_df.drop(columns=['FideId'])
 details_df = details_df.merge(players_df[['FideId', 'Name', 'Elo']], left_on="Black", right_on="FideId")
 details_df = details_df.rename(columns={"Name": "Black_Player", "Elo": "Black_Elo", "Black": "Black_Fide_ID"})
 details_df = details_df.drop(columns=['FideId'])
-details_df = details_df.merge(openings_df, on="ECO", how="left")
-details_df = details_df.rename(columns={"Name": "Opening_Name"})
 
 
 

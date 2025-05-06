@@ -88,6 +88,7 @@ def insert_pgn_to_mongo(pgn_file, tournament_name, engine_path):
                 "White": white_fide_id if white_fide_id else "Unknown",
                 "Black": black_fide_id if black_fide_id else "Unknown",
                 "ECO": eco if eco else "Unknown",
+                "OpeningName": opening_name if opening_name else "Unknown",
                 "Result": result if result else "Unknown"
             }).inserted_id
 

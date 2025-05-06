@@ -75,66 +75,53 @@ def players_wins_comparison(details_df):
     return graph_html
 
 def opening_effect(details_df):
-    opening_counts = details_df["Opening_Name"].value_counts().head(10)
-    
-    white_wins = []
-    black_wins = []
-    draws = []
-    eco_codes = []
-    opening_names = []
+    top_openings = details_df["OpeningName"].value_counts().head(10).index
+    filtered_df = details_df[details_df["OpeningName"].isin(top_openings)]
 
-    for opening in opening_counts.index:
-        opening_games = details_df[details_df["Opening_Name"] == opening]
-        
-        white_win_count = (opening_games["Result"] == "1-0").sum()
-        black_win_count = (opening_games["Result"] == "0-1").sum()
-        draw_count = (opening_games["Result"] == "1/2-1/2").sum()
-        
-        eco_code = opening_games["ECO"].iloc[0]  
-        opening_name = opening
+    results = []
+    for opening in top_openings:
+        games = filtered_df[filtered_df["OpeningName"] == opening]
+        eco = games["ECO"].iloc[0] if not games.empty else "N/A"
+        label = f"{eco} - {opening}"
 
-        white_wins.append(white_win_count)
-        black_wins.append(black_win_count)
-        draws.append(draw_count)
-        eco_codes.append(eco_code)
-        opening_names.append(opening_name)
-    
-    results_df = pd.DataFrame({
-        'ECO': eco_codes,  
-        'Opening': opening_names,
-        'White Wins': white_wins,
-        'Black Wins': black_wins,
-        'Draws': draws
-    })
-    
+        results.append({
+            "ECO": eco,
+            "Tooltip": label,
+            "White Wins": (games["Result"] == "1-0").sum(),
+            "Black Wins": (games["Result"] == "0-1").sum(),
+            "Draws": (games["Result"] == "1/2-1/2").sum()
+        })
+
+    results_df = pd.DataFrame(results)
+
     fig = go.Figure()
 
     fig.add_trace(go.Bar(
-        x=results_df['ECO'],  
-        y=results_df['White Wins'], 
-        name="Victorias con Blancas", 
-        marker_color="white", 
-        text=results_df['Opening'],
+        x=results_df['ECO'],
+        y=results_df['White Wins'],
+        name="Victorias con Blancas",
+        marker_color="white",
+        text=results_df['Tooltip'],
         textposition="none",
         hovertemplate="<b>%{text}</b><br>Victorias Blancas: %{y}<extra></extra>"
     ))
 
     fig.add_trace(go.Bar(
-        x=results_df['ECO'],  
-        y=results_df['Black Wins'], 
-        name="Victorias con Negras", 
-        marker_color="black", 
-        text=results_df['Opening'],  
+        x=results_df['ECO'],
+        y=results_df['Black Wins'],
+        name="Victorias con Negras",
+        marker_color="black",
+        text=results_df['Tooltip'],
         textposition="none",
         hovertemplate="<b>%{text}</b><br>Victorias Negras: %{y}<extra></extra>"
     ))
 
     fig.add_trace(go.Bar(
-        x=results_df['ECO'],  
-        y=results_df['Draws'], 
-        name="Empates", 
-        marker_color="gray", 
-        text=results_df['Opening'],  
+        x=results_df['ECO'],
+        y=results_df['Draws'],
+        name="Empates",
+        marker_color="gray",
+        text=results_df['Tooltip'],
         textposition="none",
         hovertemplate="<b>%{text}</b><br>Empates: %{y}<extra></extra>"
     ))
@@ -148,7 +135,6 @@ def opening_effect(details_df):
     )
 
     return fig
-
 
 
 
