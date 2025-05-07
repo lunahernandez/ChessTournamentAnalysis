@@ -25,7 +25,7 @@ def convert_time_to_seconds(time):
             return parts[0] * 60 + parts[1]
     return 0
 
-def insert_pgn_to_mongo(pgn_file, tournament_name, engine_path):
+def insert_pgn_to_mongo(pgn_file, tournament_name, engine_path, engine_depth):
     engine = chess.engine.SimpleEngine.popen_uci(engine_path)
     client = MongoClient("mongodb://admin:password@host.docker.internal:27017/")
     db = client["ChessTournamentAnalysis"]
@@ -100,7 +100,7 @@ def insert_pgn_to_mongo(pgn_file, tournament_name, engine_path):
                 color = "White" if i % 2 == 0 else "Black"
 
                 if evaluation is None:
-                    info = engine.analyse(board, chess.engine.Limit(depth=5))
+                    info = engine.analyse(board, chess.engine.Limit(depth=engine_depth))
                     score = info["score"].white()
 
                     if score.is_mate():
@@ -134,7 +134,8 @@ if __name__ == "__main__":
     parser.add_argument("pgn_file", type=str, help="Ruta al archivo PGN a importar.")
     parser.add_argument("-n", "--tournament", type=str, required=True, help="Nombre del torneo a asociar con las partidas.")
     parser.add_argument("-e", "--engine_path", type=str, required=True, help="Ruta al motor UCI (ej: Stockfish, Lc0, etc).")
+    parser.add_argument("-d", "--engine_depth", type=int, required=True, help="Profundidad de motor.")
 
     args = parser.parse_args()
     
-    insert_pgn_to_mongo(args.pgn_file, args.tournament, args.engine_path)
+    insert_pgn_to_mongo(args.pgn_file, args.tournament, args.engine_path, args.engine_depth)
