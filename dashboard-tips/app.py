@@ -39,15 +39,6 @@ details_df = details_df.rename(columns={"Name": "Black_Player", "Elo": "Black_El
 details_df = details_df.drop(columns=['FideId'])
 
 
-
-
-ICONS = {
-    "user": fa.icon_svg("user", "regular"),
-    "wallet": fa.icon_svg("wallet"),
-    "currency-dollar": fa.icon_svg("dollar-sign"),
-    "ellipsis": fa.icon_svg("ellipsis"),
-}
-
 app_ui = ui.page_sidebar(
     ui.sidebar(
         ui.input_select("selected_tournament", "Selecciona un torneo:", 
