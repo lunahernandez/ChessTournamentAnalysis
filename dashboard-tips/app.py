@@ -15,31 +15,37 @@ try:
     client.server_info()
     db = client["ChessTournamentAnalysis"]
     print("Conexión a MongoDB exitosa.")
+    
 except ServerSelectionTimeoutError as e:
     print("No se pudo conectar a MongoDB. Verifica que el contenedor esté corriendo y que la URI sea correcta.")
     print(f"Error: {e}")
     exit(1)
 
+def load_data():
+    """Carga los datos más recientes de MongoDB y los une con Players."""
+    players_df = pd.DataFrame(list(db["Players"].find()))
+    details_df = pd.DataFrame(list(db["Details"].find()))
+    moves_df = pd.DataFrame(list(db["Moves"].find()))
+
+    if details_df.empty or players_df.empty:
+        return None, None, None
+
+    players_df = players_df.drop_duplicates(subset=["FideId"])
+
+    details_df = details_df.merge(players_df[['FideId', 'Name', 'Elo']], left_on="White", right_on="FideId")
+    details_df = details_df.rename(columns={"Name": "White_Player", "Elo": "White_Elo", "White": "White_Fide_ID"})
+    details_df = details_df.drop(columns=['FideId'])
+
+    details_df = details_df.merge(players_df[['FideId', 'Name', 'Elo']], left_on="Black", right_on="FideId")
+    details_df = details_df.rename(columns={"Name": "Black_Player", "Elo": "Black_Elo", "Black": "Black_Fide_ID"})
+    details_df = details_df.drop(columns=['FideId'])
+
+    moves_df = moves_df.merge(details_df[['TournamentId', 'Round', 'Event']], on=['Round', 'TournamentId'], how='left')
+
+    return details_df, players_df, moves_df
+
+
 app_dir = Path(__file__).parent
-
-players_df = pd.DataFrame(list(db["Players"].find()))
-details_df = pd.DataFrame(list(db["Details"].find()))
-openings_df = pd.DataFrame(list(db["Openings"].find()))
-tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
-moves_df = pd.DataFrame(list(db["Moves"].find()))
-moves_df = moves_df.merge(details_df[['TournamentId', 'Round', 'Event']], on=['Round', 'TournamentId'], how='left')
-
-players_df = players_df.drop_duplicates(subset=["FideId"])
-
-details_df = details_df.merge(players_df[['FideId', 'Name', 'Elo']], left_on="White", right_on="FideId")
-details_df = details_df.rename(columns={"Name": "White_Player", "Elo": "White_Elo", "White": "White_Fide_ID"})
-details_df = details_df.drop(columns=['FideId'])
-details_df = details_df.merge(players_df[['FideId', 'Name', 'Elo']], left_on="Black", right_on="FideId")
-details_df = details_df.rename(columns={"Name": "Black_Player", "Elo": "Black_Elo", "Black": "Black_Fide_ID"})
-details_df = details_df.drop(columns=['FideId'])
-
-
-
 
 ICONS = {
     "user": fa.icon_svg("user", "regular"),
@@ -50,15 +56,14 @@ ICONS = {
 
 app_ui = ui.page_sidebar(
     ui.sidebar(
-        ui.input_select("selected_tournament", "Selecciona un torneo:", 
-                        {name: name for name in tournaments_df["Name"]}),
+        ui.output_ui("tournament_dropdown"),
         open="desktop",
         title="Torneos"
     ),
     ui.page_fluid( 
     ui.output_ui("tournament_title"),
     ui.navset_tab(
-        ui.nav_panel("General",  
+        ui.nav_panel("General",
             ui.layout_columns(
                 ui.card(
                     ui.card_header("Comparación de Puntuación por Jugador"), 
@@ -197,10 +202,14 @@ def server(input, output, session):
 
     @render.ui
     def player_elo_card():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details_filtered = details_df[details_df["TournamentId"] == tournament_id]
+
         player_elo, _ = get_player_info(input.player(), details_filtered)
-        
+
         return ui.card(
             ui.card_header(ui.HTML(f"{fa.icon_svg('chart-line')} ELO")),
             ui.card_body(ui.p(str(player_elo)))
@@ -209,9 +218,14 @@ def server(input, output, session):
 
     @render.ui
     def player_fide_id_card():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
+
         _, fide_id = get_player_info(input.player(), details)
+
         return ui.card(
             ui.card_header(ui.HTML(f"{fa.icon_svg('id-card')} FIDE ID")),
             ui.card_body(ui.p(str(fide_id)))
@@ -220,20 +234,24 @@ def server(input, output, session):
     @output
     @render.text
     def white_player_info():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         selected_round = str(input.selected_game()).strip()
+
         game_details = details_df[
             (details_df["Round"].astype(str).str.strip() == selected_round) &
             (details_df["TournamentId"] == tournament_id)
         ]
-        
+
         if game_details.empty:
             return "No disponible"
-        
+
         player_name = game_details["White_Player"].values[0]
         elo = game_details["White_Elo"].values[0]
         fide_id = game_details["White_Fide_ID"].values[0]
-        
+
         return ui.HTML(f"Nombre: {player_name}<br>ELO: {elo}<br>FIDE ID: {fide_id}")
 
 
@@ -241,8 +259,12 @@ def server(input, output, session):
     @output
     @render.text
     def black_player_info():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         selected_round = str(input.selected_game()).strip()
+
         game_details = details_df[
             (details_df["Round"].astype(str).str.strip() == selected_round) &
             (details_df["TournamentId"] == tournament_id)
@@ -250,78 +272,105 @@ def server(input, output, session):
 
         if game_details.empty:
             return "No disponible"
+
         player_name = game_details["Black_Player"].values[0]
         elo = game_details["Black_Elo"].values[0]
         fide_id = game_details["Black_Fide_ID"].values[0]
+
         return ui.HTML(f"Nombre: {player_name}<br>ELO: {elo}<br>FIDE ID: {fide_id}")
     
     @render.ui
     def output_graph1():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
+
+        if details.empty:
+            return ui.HTML("<b>No hay datos disponibles para este torneo.</b>")
+
         graph_html = players_performance_comparison(details)
         return ui.HTML(graph_html)
+
     @render.ui
     def output_graph2():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
+
         graph_html = players_wins_comparison(details)
         return ui.HTML(graph_html)
 
     @render.ui
     def output_graph3():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
-        fig = opening_effect(details)
-        return fig
+
+        return opening_effect(details)
 
     @render.ui
     def output_graph4i():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
-        player_name = input.player()
-        fig_white, _ = player_color_advantage(player_name, details)
+
+        fig_white, _ = player_color_advantage(input.player(), details)
         return fig_white
 
     @render.ui
     def output_graph4ii():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
-        player_name = input.player()
-        _, fig_black = player_color_advantage(player_name, details)
+
+        _, fig_black = player_color_advantage(input.player(), details)
         return fig_black
     
     @render.ui
     def output_graph5():
+        _, _, moves_df = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
-        selected_round = input.selected_game()
 
-        # Asegura que sea str por si acaso
-        selected_round = str(selected_round).strip()
+        selected_round = str(input.selected_game()).strip()
 
         if selected_round not in moves["Round"].astype(str).values:
             return "No se encontró la ronda para esta partida."
 
-        fig = engine_evaluation(selected_round, moves)
-        return fig
+        return engine_evaluation(selected_round, moves)
 
     @render.ui
     def output_graph6():
+        _, _, moves_df = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
+
         selected_round = str(input.selected_game()).strip()
 
         if selected_round not in moves["Round"].astype(str).values:
             return "No se encontró la ronda para esta partida."
 
-        fig = plot_player_times(selected_round, moves)
-        return fig
-
-
+        return plot_player_times(selected_round, moves)
     
     @render.ui
     def output_graph7():
+        _, _, moves_df = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
         selected_round = str(input.selected_game()).strip()
@@ -329,29 +378,37 @@ def server(input, output, session):
         if selected_round not in moves["Round"].astype(str).values:
             return "No se encontró la ronda para esta partida."
 
-        fig = time_vs_eval_change_single_game(moves, selected_round)
-        return fig
+        return time_vs_eval_change_single_game(moves, selected_round)
     
 
     @render.ui
     def output_graph8():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
-        details = details_df[details_df["TournamentId"] == tournament_id]     
-        fig = elo_vs_result(details)
-        return fig
+        details = details_df[details_df["TournamentId"] == tournament_id]
+
+        return elo_vs_result(details)
 
 
     @render.ui
     def output_graph9():
+        details_df, _, moves_df = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
-        details = details_df[details_df["TournamentId"] == tournament_id]   
+        details = details_df[details_df["TournamentId"] == tournament_id]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
-        fig = evaluation_distribution_plotly(details, moves)
-        return fig
+
+        return evaluation_distribution_plotly(details, moves)
 
     
     @render.ui
     def heatmap_white():
+        _, _, moves_df = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
         selected_round = str(input.selected_game()).strip()
@@ -364,6 +421,9 @@ def server(input, output, session):
 
     @render.ui
     def heatmap_black():
+        _, _, moves_df = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
         selected_round = str(input.selected_game()).strip()
@@ -374,33 +434,39 @@ def server(input, output, session):
         return create_chess_heatmap_plotly(moves, selected_round, "Black")
 
 
+
     @output
     @render.text
     def black_player_result():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
 
         details_df["Round"] = details_df["Round"].astype(str).str.strip()
         selected_round = str(input.selected_game()).strip()
+
         game_details = details_df[
-            (details_df["Round"].astype(str).str.strip() == selected_round) &
+            (details_df["Round"] == selected_round) &
             (details_df["TournamentId"] == tournament_id)
         ]
 
         if game_details.empty:
             return "No disponible"
-        
-        result = game_details["Result"].values[0]
-        result = result.split("-")[1]
-        
+
+        result = game_details["Result"].values[0].split("-")[1]
         if result not in ['1', '0']:
             result = '½'
-        
+
         return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: white;">{result}</span>')
 
 
     @output
     @render.text
     def white_player_result():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
 
         selected_round = str(input.selected_game()).strip()
@@ -411,17 +477,19 @@ def server(input, output, session):
 
         if game_details.empty:
             return "No disponible"
-        
-        result = game_details["Result"].values[0]
-        result = result.split("-")[0]
 
+        result = game_details["Result"].values[0].split("-")[0]
         if result not in ['1', '0']:
             result = '½'
-        
+
         return ui.HTML(f'<span style="font-size: 20px; font-weight: bold; color: black;">{result}</span>')
+
     
     @render.ui
     def dropdown_partidas():
+        details_df, _, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         selected_name = input.selected_tournament()
         if selected_name is None or selected_name not in tournaments_df["Name"].values:
             return ui.input_select("selected_game", "Selecciona una partida:", {})
@@ -437,23 +505,47 @@ def server(input, output, session):
                 for _, row in partidas.iterrows()
             }
         )
+
     
     @render.ui
     def player_dropdown():
+        details_df, players_df, _ = load_data()
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+
         selected_tournament = input.selected_tournament()
         if selected_tournament not in tournaments_df["Name"].values:
             return ui.input_selectize("player", "Selecciona un jugador:", choices={})
 
         tournament_id = tournaments_df[tournaments_df["Name"] == selected_tournament]["_id"].values[0]
-        filtered_players = players_df[players_df["TournamentId"] == tournament_id]
+        filtered_details = details_df[details_df["TournamentId"] == tournament_id]
+
+        players_in_tournament = pd.concat([
+            filtered_details["White_Player"], filtered_details["Black_Player"]
+        ]).dropna().unique()
 
         return ui.input_selectize(
             "player",
             "Selecciona un jugador:",
-            choices={name: name for name in filtered_players["Name"].dropna().unique()},
+            choices={name: name for name in sorted(players_in_tournament)},
             options={"placeholder": "Escribe para filtrar..."}
         )
 
+
+    @render.ui
+    def tournament_dropdown():
+        tournaments = pd.DataFrame(list(db["Tournaments"].find()))
+        return ui.input_select(
+            "selected_tournament", "Selecciona un torneo:",
+            choices={row["Name"]: row["Name"] for _, row in tournaments.iterrows()}
+        )
+
+    @render.ui
+    def tournament_dropdown():
+        tournaments = pd.DataFrame(list(db["Tournaments"].find()))
+        return ui.input_select(
+            "selected_tournament", "Selecciona un torneo:",
+            choices={row["Name"]: row["Name"] for _, row in tournaments.iterrows()}
+        )
 
 
 app = App(app_ui, server)
