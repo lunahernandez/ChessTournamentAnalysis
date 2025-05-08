@@ -3,6 +3,7 @@ from pymongo import MongoClient
 from pathlib import Path
 import faicons as fa
 import pandas as pd
+import shiny.reactive as reactive
 from utils.plots import (players_performance_comparison, players_wins_comparison, 
                          opening_effect, player_color_advantage, get_player_info, 
                          engine_evaluation, plot_player_times, time_vs_eval_change_single_game,
@@ -13,7 +14,6 @@ from utils.pgn_to_mongo import insert_pgn_to_mongo
 
 try:
     client = MongoClient("mongodb://admin:password@mongodb:27017/")
-    # client = MongoClient("mongodb://localhost:27017/")
     client.server_info()
     db = client["ChessTournamentAnalysis"]
     print("Conexión a MongoDB exitosa.")
@@ -558,8 +558,6 @@ def server(input, output, session):
             choices={row["Name"]: row["Name"] for _, row in tournaments.iterrows()}
         )
     
-    # Función para importar el torneo desde un archivo PGN
-    import shiny.reactive as reactive
     status_text = reactive.Value("")
 
     @output
