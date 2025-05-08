@@ -11,7 +11,8 @@ from utils.plots import (players_performance_comparison, players_wins_comparison
 from pymongo.errors import ServerSelectionTimeoutError
 
 try:
-    client = MongoClient("mongodb://admin:password@host.docker.internal:27017/")
+    # client = MongoClient("mongodb://admin:password@host.docker.internal:27017/")
+    client = MongoClient("mongodb://localhost:27017/")
     client.server_info()
     db = client["ChessTournamentAnalysis"]
     print("Conexión a MongoDB exitosa.")
@@ -173,9 +174,19 @@ app_ui = ui.page_sidebar(
             col_widths=[6, 6]
         )
     ),
+),
+
+ui.nav_panel("Importar",
+    ui.card(
+        ui.card_header("Importar Torneo desde PGN"),
+        ui.input_file("pgn_file", "Selecciona archivo PGN", accept=[".pgn"]),
+        ui.input_text("tournament_name", "Nombre del torneo"),
+        ui.input_text("engine_path", "Ruta al motor (Stockfish)", placeholder="C:/ruta/a/stockfish.exe"),
+        ui.input_numeric("engine_depth", "Profundidad del motor", value=12, min=1, max=50),
+        ui.input_action_button("import_button", "Importar Torneo"),
+        ui.output_text("import_status")
+    )
 )
-
-
     ),
     ui.include_css(app_dir / "styles.css"),
     title="Chess Tournament Analysis | Cerrado IM Barcelona Junio 2024",
@@ -546,6 +557,56 @@ def server(input, output, session):
             "selected_tournament", "Selecciona un torneo:",
             choices={row["Name"]: row["Name"] for _, row in tournaments.iterrows()}
         )
+    
+    # Importación de torneo desde PGN
+    import subprocess
+    import threading
+
+    @output
+    @render.text
+    def import_status():
+        if input.import_button() == 0:
+            return ""
+
+        # Recuperar inputs
+        pgn_file_info = input.pgn_file()
+        tournament_name = input.tournament_name()
+        engine_path = input.engine_path()
+        engine_depth = input.engine_depth()
+
+        if not pgn_file_info or not tournament_name or not engine_path or not engine_depth:
+            return "⚠️ Por favor completa todos los campos."
+
+        # Guardar el archivo en una ruta temporal
+        file_path = pgn_file_info[0]["datapath"]
+
+        def run_import():
+            try:
+                result = subprocess.run([
+                    "python", "../python/pgn_to_mongo.py",
+                    file_path,
+                    "-n", tournament_name,
+                    "-e", engine_path,
+                    "-d", str(engine_depth)
+                ], capture_output=True, text=True)
+
+                if result.returncode != 0:
+                    output_text = f"❌ Error al importar el torneo:\n{result.stderr}"
+                    return output_text
+                else:
+                    return  "✅ Torneo importado correctamente."
+                
+                # Actualizar la UI con el resultado del proceso
+                session.send_ui("import_status", ui.HTML(output_text))
+
+            except Exception as e:
+                session.send_ui("import_status", ui.HTML(f"❌ Error inesperado: {str(e)}"))
+
+        # Ejecutar la función de importación en un hilo separado
+        threading.Thread(target=run_import, daemon=True).start()
+
+        return 
+
 
 
 app = App(app_ui, server)
