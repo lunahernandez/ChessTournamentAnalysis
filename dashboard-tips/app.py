@@ -63,140 +63,133 @@ app_ui = ui.page_sidebar(
         title="Torneos"
     ),
     ui.page_fluid( 
-    ui.output_ui("tournament_title"),
-    ui.navset_tab(
-        ui.nav_panel("General",
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("Comparación de Puntuación por Jugador"), 
-                    ui.output_ui("output_graph1"), full_screen=True
-                ),
-                ui.card(
-                    ui.card_header("Comparación de Victorias por Jugador"), 
-                    ui.output_ui("output_graph2"), full_screen=True
-                ),
-                col_widths=[6, 6]
-            ),
-            ui.card(
-                    ui.card_header("Comparación de Resultados por Aperturas Más Jugadas"),
-                    ui.output_ui("output_graph3"), full_screen=True
-                ),
-                
-            ui.layout_columns(
-                ui.card(
-                    ui.card_header("Comparación de Resultados por Jugador según el ELO"), 
-                    ui.output_ui("output_graph8"), full_screen=True
-                ),
-                ui.card(
-                    ui.card_header("Distribución de Evaluaciones por Jugador"), 
-                    ui.output_ui("output_graph9"), full_screen=True
-                ),
-                col_widths=[6, 6]
-            ),
-        ),
-        
-        ui.nav_panel("Individual",  
-            ui.page_sidebar(
-                ui.sidebar(
-                    ui.output_ui("player_dropdown"),
-                    open="desktop"
-                ),
-                ui.layout_columns(
-                    ui.output_ui("player_name_card"),
-                    ui.output_ui("player_elo_card"),
-                    ui.output_ui("player_fide_id_card")
-                ),
+        ui.output_ui("tournament_title"),
+        ui.navset_tab(
+            ui.nav_panel("General",
                 ui.layout_columns(
                     ui.card(
-                        ui.card_header("Rendimiento con blancas"),
-                        ui.output_ui("output_graph4i"), full_screen=True
+                        ui.card_header("Comparación de Puntuación por Jugador"), 
+                        ui.output_ui("output_graph1"), full_screen=True
                     ),
                     ui.card(
-                        ui.card_header("Rendimiento con negras"),
-                        ui.output_ui("output_graph4ii"), full_screen=True
+                        ui.card_header("Comparación de Victorias por Jugador"), 
+                        ui.output_ui("output_graph2"), full_screen=True
+                    ),
+                    col_widths=[6, 6]
+                ),
+                ui.card(
+                        ui.card_header("Comparación de Resultados por Aperturas Más Jugadas"),
+                        ui.output_ui("output_graph3"), full_screen=True
+                    ),
+                    
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("Comparación de Resultados por Jugador según el ELO"), 
+                        ui.output_ui("output_graph8"), full_screen=True
+                    ),
+                    ui.card(
+                        ui.card_header("Distribución de Evaluaciones por Jugador"), 
+                        ui.output_ui("output_graph9"), full_screen=True
+                    ),
+                    col_widths=[6, 6]
+                ),
+            ),
+            
+            ui.nav_panel("Individual",  
+                ui.page_sidebar(
+                    ui.sidebar(
+                        ui.output_ui("player_dropdown"),
+                        open="desktop"
+                    ),
+                    ui.layout_columns(
+                        ui.output_ui("player_name_card"),
+                        ui.output_ui("player_elo_card"),
+                        ui.output_ui("player_fide_id_card")
+                    ),
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("Rendimiento con blancas"),
+                            ui.output_ui("output_graph4i"), full_screen=True
+                        ),
+                        ui.card(
+                            ui.card_header("Rendimiento con negras"),
+                            ui.output_ui("output_graph4ii"), full_screen=True
+                        )
+                    ),
+                ),
+            ),   
+            ui.nav_panel("Partidas",
+                ui.page_sidebar(
+                    ui.sidebar(
+                        ui.output_ui("dropdown_partidas"),
+                        ui.card(
+                            ui.card_header(ui.row([
+                                ui.column(10, [
+                                    ui.HTML(f"{fa.icon_svg('user', 'solid')} Jugador Blanco")
+                                    ]), 
+                                    ui.column(2, 
+                                        [ui.output_ui("white_player_result")
+                                    ])
+                            ])),
+                            ui.card_body(ui.output_ui("white_player_info")),
+                            style="background-color: white; color: black;"
+                        ),
+                        ui.card(
+                            ui.card_header(ui.row([
+                                ui.column(10, [
+                                    ui.HTML(f"{fa.icon_svg('user', 'solid')} Jugador Negro")
+                                ]), 
+                                ui.column(2, [
+                                    ui.output_ui("black_player_result")
+                                ])
+                            ])),
+                            ui.card_body(ui.output_ui("black_player_info")),
+                            style="background-color: black; color: white;"
+                        ),
+                        open="desktop",
+                    ),
+                    ui.card(
+                        ui.card_header("Evaluación del Motor por Jugada"),
+                        ui.output_ui("output_graph5"), full_screen=True
+                    ),
+                    ui.card(
+                        ui.card_header("Tiempo Restante por Jugada"),
+                        ui.output_ui("output_graph6"), full_screen=True
+                    ),
+                    ui.card(
+                        ui.card_header("Relación entre Tiempo Consumido y Cambio en Evaluación"),
+                        ui.output_ui("output_graph7"), full_screen=True
+                    ),
+                    ui.layout_columns(
+                        ui.card(
+                            ui.card_header("Mapa de calor de movimientos de Blancas"),
+                            ui.output_ui("heatmap_white"), full_screen=True
+                        ),
+                        ui.card(
+                            ui.card_header("Mapa de calor de movimientos de Negras"),
+                            ui.output_ui("heatmap_black"), full_screen=True
+                        ),
+                        col_widths=[6, 6]
                     )
                 ),
             ),
-        ),        
- ui.nav_panel("Partidas",  
-    ui.page_sidebar(
-        ui.sidebar(
-               ui.output_ui("dropdown_partidas"),
-            ui.card(
-                ui.card_header(ui.row([
-                    ui.column(10, [
-                        ui.HTML(f"{fa.icon_svg('user', 'solid')} Jugador Blanco")
-                    ]), 
-                    ui.column(2, [
-                        ui.output_ui("white_player_result")
-                    ])
-                ])),
-                ui.card_body(ui.output_ui("white_player_info")),
-                style="background-color: white; color: black;"
-            ),
-
-            
-            ui.card(
-            ui.card_header(ui.row([
-                ui.column(10, [
-                    ui.HTML(f"{fa.icon_svg('user', 'solid')} Jugador Negro")
-                ]), 
-                ui.column(2, [
-                    ui.output_ui("black_player_result")
-                ])
-            ])),
-            ui.card_body(ui.output_ui("black_player_info")),
-            style="background-color: black; color: white;"
+            ui.nav_panel("Importar",
+                ui.card(
+                    ui.card_header("Importar Torneo desde PGN"),
+                    ui.input_file("pgn_file", "Selecciona archivo PGN (debe tener datos de tiempo)", accept=[".pgn"]),
+                    ui.input_text("tournament_name", "Nombre del torneo"),
+                    ui.output_text("name_validation"),
+                    ui.input_numeric("engine_depth", "Profundidad del motor", value=12, min=1, max=50),
+                    ui.input_action_button("import_button", "Importar Torneo"),
+                    ui.output_text("import_status")
+                )
+            )
         ),
-            
-            open="desktop",
-        ),
-        ui.card(
-            ui.card_header("Evaluación del Motor por Jugada"),
-            ui.output_ui("output_graph5"), full_screen=True
-        ),
-        ui.card(
-            ui.card_header("Tiempo Restante por Jugada"),
-            ui.output_ui("output_graph6"), full_screen=True
-        ),
-        ui.card(
-            ui.card_header("Relación entre Tiempo Consumido y Cambio en Evaluación"),
-            ui.output_ui("output_graph7"), full_screen=True
-        ),
-        ui.layout_columns(
-            ui.card(
-                ui.card_header("Mapa de calor de movimientos de Blancas"),
-                ui.output_ui("heatmap_white"), full_screen=True
-            ),
-            ui.card(
-                ui.card_header("Mapa de calor de movimientos de Negras"),
-                ui.output_ui("heatmap_black"), full_screen=True
-            ),
-            col_widths=[6, 6]
-        )
-    ),
-),
-
-ui.nav_panel("Importar",
-    ui.card(
-        ui.card_header("Importar Torneo desde PGN"),
-        ui.input_file("pgn_file", "Selecciona archivo PGN", accept=[".pgn"]),
-        ui.input_text("tournament_name", "Nombre del torneo"),
-        ui.output_text("name_validation"),
-        ui.input_numeric("engine_depth", "Profundidad del motor", value=12, min=1, max=50),
-        ui.input_action_button("import_button", "Importar Torneo"),
-        ui.output_text("import_status")
+        ui.include_css(app_dir / "styles.css"),
+        title="Chess Tournament Analysis | Cerrado IM Barcelona Junio 2024",
+        fillable=True,
     )
 )
-    ),
-    ui.include_css(app_dir / "styles.css"),
-    title="Chess Tournament Analysis | Cerrado IM Barcelona Junio 2024",
-    fillable=True,
-)
-
-)
-
-
 
 
 def server(input, output, session):
@@ -218,6 +211,9 @@ def server(input, output, session):
     def player_elo_card():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return 
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details_filtered = details_df[details_df["TournamentId"] == tournament_id]
@@ -234,6 +230,9 @@ def server(input, output, session):
     def player_fide_id_card():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return 
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
@@ -250,6 +249,9 @@ def server(input, output, session):
     def white_player_info():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return 
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         selected_round = str(input.selected_game()).strip()
@@ -275,6 +277,9 @@ def server(input, output, session):
     def black_player_info():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         selected_round = str(input.selected_game()).strip()
@@ -298,6 +303,10 @@ def server(input, output, session):
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
 
+
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
 
@@ -312,6 +321,9 @@ def server(input, output, session):
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
 
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
+
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
 
@@ -322,6 +334,9 @@ def server(input, output, session):
     def output_graph3():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
@@ -332,6 +347,9 @@ def server(input, output, session):
     def output_graph4i():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
@@ -343,6 +361,9 @@ def server(input, output, session):
     def output_graph4ii():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
@@ -354,6 +375,9 @@ def server(input, output, session):
     def output_graph5():
         _, _, moves_df = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
@@ -369,6 +393,9 @@ def server(input, output, session):
     def output_graph6():
         _, _, moves_df = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
@@ -384,6 +411,9 @@ def server(input, output, session):
     def output_graph7():
         _, _, moves_df = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
@@ -399,6 +429,9 @@ def server(input, output, session):
     def output_graph8():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
@@ -410,6 +443,9 @@ def server(input, output, session):
     def output_graph9():
         details_df, _, moves_df = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         details = details_df[details_df["TournamentId"] == tournament_id]
@@ -422,6 +458,9 @@ def server(input, output, session):
     def heatmap_white():
         _, _, moves_df = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
@@ -437,6 +476,9 @@ def server(input, output, session):
     def heatmap_black():
         _, _, moves_df = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
         moves = moves_df[moves_df["TournamentId"] == tournament_id]
@@ -454,6 +496,9 @@ def server(input, output, session):
     def black_player_result():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return 
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
 
@@ -480,6 +525,9 @@ def server(input, output, session):
     def white_player_result():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return
 
         tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
 
@@ -503,6 +551,9 @@ def server(input, output, session):
     def dropdown_partidas():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         selected_name = input.selected_tournament()
         if selected_name is None or selected_name not in tournaments_df["Name"].values:
@@ -525,6 +576,9 @@ def server(input, output, session):
     def player_dropdown():
         details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        
+        if tournaments_df.empty:
+            return ui.HTML("No hay datos disponibles. Por favor, importa un torneo primero.")
 
         selected_tournament = input.selected_tournament()
         if selected_tournament not in tournaments_df["Name"].values:
@@ -571,6 +625,9 @@ def server(input, output, session):
         
         if not name:
             return ""
+        
+        if tournaments_df.empty:
+            return "✅ Nombre válido."
 
         if name in tournaments_df["Name"].values:
             return "❌ Nombre de torneo ya existente. Si desea importar igualmente, tenga en cuenta que habrá duplicados."
