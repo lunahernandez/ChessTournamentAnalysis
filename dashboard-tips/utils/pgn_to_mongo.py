@@ -27,7 +27,7 @@ def convert_time_to_seconds(time):
 
 def insert_pgn_to_mongo(pgn_file, tournament_name, engine_path, engine_depth):
     engine = chess.engine.SimpleEngine.popen_uci(engine_path)
-    client = MongoClient("mongodb://admin:password@host.docker.internal:27017/")
+    client = MongoClient("mongodb://admin:passwd@mongodb:27017/")
     # client = MongoClient("mongodb://localhost:27017/")
     db = client["ChessTournamentAnalysis"]
 

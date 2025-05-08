@@ -7,6 +7,10 @@ WORKDIR /app
 # Copia los archivos de la aplicación a la imagen
 COPY . /app
 
+COPY ./evaluator/stockfish /usr/local/bin/stockfish
+RUN chmod +rwx /usr/local/bin/stockfish
+
+
 # Instala las dependencias de la aplicación
 RUN pip install -r /app/requirements.txt
 

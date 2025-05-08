@@ -12,7 +12,7 @@ from pymongo.errors import ServerSelectionTimeoutError
 from utils.pgn_to_mongo import insert_pgn_to_mongo
 
 try:
-    client = MongoClient("mongodb://admin:password@host.docker.internal:27017/")
+    client = MongoClient("mongodb://admin:password@mongodb:27017/")
     # client = MongoClient("mongodb://localhost:27017/")
     client.server_info()
     db = client["ChessTournamentAnalysis"]
@@ -182,7 +182,6 @@ ui.nav_panel("Importar",
         ui.card_header("Importar Torneo desde PGN"),
         ui.input_file("pgn_file", "Selecciona archivo PGN", accept=[".pgn"]),
         ui.input_text("tournament_name", "Nombre del torneo"),
-        ui.input_text("engine_path", "Ruta al motor (Stockfish)", placeholder="C:/ruta/a/stockfish.exe"),
         ui.input_numeric("engine_depth", "Profundidad del motor", value=12, min=1, max=50),
         ui.input_action_button("import_button", "Importar Torneo"),
         ui.output_text("import_status")
@@ -571,7 +570,7 @@ def server(input, output, session):
 
         pgn_file_info = input.pgn_file()
         tournament_name = input.tournament_name()
-        engine_path = input.engine_path()
+        engine_path = "/app/evaluator/stockfish/stockfish"
         engine_depth = input.engine_depth()
 
         if not pgn_file_info or not tournament_name or not engine_path or not engine_depth:
