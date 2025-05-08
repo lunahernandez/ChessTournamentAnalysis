@@ -182,6 +182,7 @@ ui.nav_panel("Importar",
         ui.card_header("Importar Torneo desde PGN"),
         ui.input_file("pgn_file", "Selecciona archivo PGN", accept=[".pgn"]),
         ui.input_text("tournament_name", "Nombre del torneo"),
+        ui.output_text("name_validation"),
         ui.input_numeric("engine_depth", "Profundidad del motor", value=12, min=1, max=50),
         ui.input_action_button("import_button", "Importar Torneo"),
         ui.output_text("import_status")
@@ -210,6 +211,8 @@ def server(input, output, session):
             ui.card_header(ui.HTML(f"{fa.icon_svg('user', 'solid')} Nombre")),
             ui.card_body(ui.p(input.player()))
         )
+
+    
 
     @render.ui
     def player_elo_card():
@@ -520,7 +523,7 @@ def server(input, output, session):
     
     @render.ui
     def player_dropdown():
-        details_df, players_df, _ = load_data()
+        details_df, _, _ = load_data()
         tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
 
         selected_tournament = input.selected_tournament()
@@ -550,6 +553,7 @@ def server(input, output, session):
             choices={row["Name"]: row["Name"] for _, row in tournaments.iterrows()}
         )
 
+
     @render.ui
     def tournament_dropdown():
         tournaments = pd.DataFrame(list(db["Tournaments"].find()))
@@ -557,6 +561,22 @@ def server(input, output, session):
             "selected_tournament", "Selecciona un torneo:",
             choices={row["Name"]: row["Name"] for _, row in tournaments.iterrows()}
         )
+
+
+    @output
+    @render.text
+    def name_validation():
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        name = input.tournament_name()
+        
+        if not name:
+            return ""
+
+        if name in tournaments_df["Name"].values:
+            return "❌ Nombre de torneo ya existente. Si desea importar igualmente, tenga en cuenta que habrá duplicados."
+        
+        return "✅ Nombre válido."
+
     
     status_text = reactive.Value("")
 
@@ -584,14 +604,11 @@ def server(input, output, session):
                 engine_path=engine_path,
                 engine_depth=engine_depth
             )
-            status_text.set("✅ Torneo importado correctamente.")
+            status_text.set("✅ Torneo importado correctamente. Por favor, actualiza la página.")
         except Exception as e:
             status_text.set(f"❌ Error durante la importación: {e}")
 
         return status_text.get()
-
-
-
 
 
 app = App(app_ui, server)
