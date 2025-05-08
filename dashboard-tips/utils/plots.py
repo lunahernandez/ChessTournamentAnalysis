@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 def players_performance_comparison(details_df):
     players = pd.concat([details_df["White_Player"], details_df["Black_Player"]]).unique()
     stats_list = []
+
     for player in players:
         white_wins = ((details_df["White_Player"] == player) & (details_df["Result"] == "1-0")).sum()
         white_draws = ((details_df["White_Player"] == player) & (details_df["Result"] == "1/2-1/2")).sum()
@@ -19,21 +20,38 @@ def players_performance_comparison(details_df):
 
         stats_list.append({
             "Player": player,
-            "Wins with White": white_wins + white_draws * 0.5,
-            "Wins with Black": black_wins + black_draws * 0.5
+            "White_Score": white_wins + white_draws * 0.5,
+            "Black_Score": black_wins + black_draws * 0.5
         })
 
     players_stats = pd.DataFrame(stats_list)
-    players_stats["Total Score"] = players_stats["Wins with White"] + players_stats["Wins with Black"]
+    players_stats["Total Score"] = players_stats["White_Score"] + players_stats["Black_Score"]
     players_stats = players_stats.sort_values(by="Total Score", ascending=False)
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with White"], name="Puntuación con Blancas", marker_color="white", text=players_stats["Wins with White"], textposition="none", hoverinfo="text"))
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with Black"], name="Puntuación con Negras", marker_color="black", text=players_stats["Wins with Black"], textposition="none", hoverinfo="text"))
+
+    fig.add_trace(go.Bar(
+        x=players_stats["Player"],
+        y=players_stats["White_Score"],
+        name="Puntuación con Blancas",
+        marker_color="white",
+        text=players_stats.apply(lambda row: f"{row['Player']}<br>Blancas: {row['White_Score']:.1f}", axis=1),
+        hovertemplate="%{text}<extra></extra>",
+        textposition="none"
+    ))
+
+    fig.add_trace(go.Bar(
+        x=players_stats["Player"],
+        y=players_stats["Black_Score"],
+        name="Puntuación con Negras",
+        marker_color="black",
+        text=players_stats.apply(lambda row: f"{row['Player']}<br>Negras: {row['Black_Score']:.1f}", axis=1),
+        hovertemplate="%{text}<extra></extra>",
+        textposition="none"
+    ))
 
     fig.update_layout(
         barmode="stack",
-        title="Comparación de Puntuación Obtenida por Jugador",
         xaxis_title="Jugador",
         yaxis_title="Puntuación Obtenida",
         xaxis_tickangle=-45,
@@ -47,23 +65,44 @@ def players_performance_comparison(details_df):
 def players_wins_comparison(details_df):
     players = pd.concat([details_df["White_Player"], details_df["Black_Player"]]).unique()
     stats_list = []
+
     for player in players:
         white_wins = ((details_df["White_Player"] == player) & (details_df["Result"] == "1-0")).sum()
         black_wins = ((details_df["Black_Player"] == player) & (details_df["Result"] == "0-1")).sum()
-
-        stats_list.append({"Player": player, "Wins with White": white_wins, "Wins with Black": black_wins})
+        stats_list.append({
+            "Player": player,
+            "Wins with White": white_wins,
+            "Wins with Black": black_wins
+        })
 
     players_stats = pd.DataFrame(stats_list)
     players_stats["Total Wins"] = players_stats["Wins with White"] + players_stats["Wins with Black"]
     players_stats = players_stats.sort_values(by="Total Wins", ascending=False)
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with White"], name="Victorias con Blancas", marker_color="white", text=players_stats["Wins with White"], textposition="none", hoverinfo="text"))
-    fig.add_trace(go.Bar(x=players_stats["Player"], y=players_stats["Wins with Black"], name="Victorias con Negras", marker_color="black", text=players_stats["Wins with Black"], textposition="none", hoverinfo="text"))
+
+    fig.add_trace(go.Bar(
+        x=players_stats["Player"],
+        y=players_stats["Wins with White"],
+        name="Victorias con Blancas",
+        marker_color="white",
+        text=players_stats.apply(lambda row: f"{row['Player']}<br>Blancas: {row['Wins with White']}", axis=1),
+        hovertemplate="%{text}<extra></extra>",
+        textposition="none"
+    ))
+
+    fig.add_trace(go.Bar(
+        x=players_stats["Player"],
+        y=players_stats["Wins with Black"],
+        name="Victorias con Negras",
+        marker_color="black",
+        text=players_stats.apply(lambda row: f"{row['Player']}<br>Negras: {row['Wins with Black']}", axis=1),
+        hovertemplate="%{text}<extra></extra>",
+        textposition="none"
+    ))
 
     fig.update_layout(
         barmode="stack",
-        title="Comparación de Victorias por Jugador",
         xaxis_title="Jugador",
         yaxis_title="Partidas Ganadas",
         xaxis_tickangle=-45,
@@ -75,66 +114,53 @@ def players_wins_comparison(details_df):
     return graph_html
 
 def opening_effect(details_df):
-    opening_counts = details_df["Opening_Name"].value_counts().head(10)
-    
-    white_wins = []
-    black_wins = []
-    draws = []
-    eco_codes = []
-    opening_names = []
+    top_openings = details_df["OpeningName"].value_counts().head(10).index
+    filtered_df = details_df[details_df["OpeningName"].isin(top_openings)]
 
-    for opening in opening_counts.index:
-        opening_games = details_df[details_df["Opening_Name"] == opening]
-        
-        white_win_count = (opening_games["Result"] == "1-0").sum()
-        black_win_count = (opening_games["Result"] == "0-1").sum()
-        draw_count = (opening_games["Result"] == "1/2-1/2").sum()
-        
-        eco_code = opening_games["ECO"].iloc[0]  
-        opening_name = opening
+    results = []
+    for opening in top_openings:
+        games = filtered_df[filtered_df["OpeningName"] == opening]
+        eco = games["ECO"].iloc[0] if not games.empty else "N/A"
+        label = f"{eco} - {opening}"
 
-        white_wins.append(white_win_count)
-        black_wins.append(black_win_count)
-        draws.append(draw_count)
-        eco_codes.append(eco_code)
-        opening_names.append(opening_name)
-    
-    results_df = pd.DataFrame({
-        'ECO': eco_codes,  
-        'Opening': opening_names,
-        'White Wins': white_wins,
-        'Black Wins': black_wins,
-        'Draws': draws
-    })
-    
+        results.append({
+            "ECO": eco,
+            "Tooltip": label,
+            "White Wins": (games["Result"] == "1-0").sum(),
+            "Black Wins": (games["Result"] == "0-1").sum(),
+            "Draws": (games["Result"] == "1/2-1/2").sum()
+        })
+
+    results_df = pd.DataFrame(results)
+
     fig = go.Figure()
 
     fig.add_trace(go.Bar(
-        x=results_df['ECO'],  
-        y=results_df['White Wins'], 
-        name="Victorias con Blancas", 
-        marker_color="white", 
-        text=results_df['Opening'],
+        x=results_df['ECO'],
+        y=results_df['White Wins'],
+        name="Victorias con Blancas",
+        marker_color="white",
+        text=results_df['Tooltip'],
         textposition="none",
         hovertemplate="<b>%{text}</b><br>Victorias Blancas: %{y}<extra></extra>"
     ))
 
     fig.add_trace(go.Bar(
-        x=results_df['ECO'],  
-        y=results_df['Black Wins'], 
-        name="Victorias con Negras", 
-        marker_color="black", 
-        text=results_df['Opening'],  
+        x=results_df['ECO'],
+        y=results_df['Black Wins'],
+        name="Victorias con Negras",
+        marker_color="black",
+        text=results_df['Tooltip'],
         textposition="none",
         hovertemplate="<b>%{text}</b><br>Victorias Negras: %{y}<extra></extra>"
     ))
 
     fig.add_trace(go.Bar(
-        x=results_df['ECO'],  
-        y=results_df['Draws'], 
-        name="Empates", 
-        marker_color="gray", 
-        text=results_df['Opening'],  
+        x=results_df['ECO'],
+        y=results_df['Draws'],
+        name="Empates",
+        marker_color="gray",
+        text=results_df['Tooltip'],
         textposition="none",
         hovertemplate="<b>%{text}</b><br>Empates: %{y}<extra></extra>"
     ))
@@ -148,7 +174,6 @@ def opening_effect(details_df):
     )
 
     return fig
-
 
 
 
@@ -558,8 +583,8 @@ def create_chess_heatmap_plotly(moves_df, round_number, color):
         xaxis_title='Columna',
         yaxis_title='Fila',
         yaxis_autorange='reversed',
-        width=500,
-        height=500,
+        width=450,
+        height=450,
         shapes=shapes,
     )
 
