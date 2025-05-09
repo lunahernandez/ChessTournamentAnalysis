@@ -1,12 +1,11 @@
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.io as pio
-from datetime import timedelta
-import plotly.express as px
 import numpy as np
 import re
-import seaborn as sns
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.io as pio
+import plotly.express as px
+from datetime import timedelta
+
 
 def players_performance_comparison(details_df):
     players = pd.concat([details_df["White_Player"], details_df["Black_Player"]]).unique()
@@ -190,7 +189,7 @@ def player_color_advantage(player_name, details_df):
     black_draws = (black_games["Result"] == "1/2-1/2").sum()
 
     labels = ["Victorias", "Empates", "Derrotas"]
-    colors = ["#00FF00", "#FFFF66", "#FF0000"]
+    colors = ["#00CD00", "#FFFF00", "#CD3700"]
 
     fig_white = go.Figure()
     fig_white.add_trace(go.Pie(
@@ -209,7 +208,11 @@ def player_color_advantage(player_name, details_df):
         textinfo="label+percent",
         hole=0.4
     ))
-
+    if white_games.empty:
+        fig_white =  None
+    elif black_games.empty:
+        fig_black =  None
+    
     return fig_white, fig_black
 
 def get_player_info(player_name, details_df):
@@ -289,6 +292,8 @@ def engine_evaluation(round_number, moves_df, show_colors=True):
     )
 
     return fig
+import plotly.express as px
+from datetime import timedelta
 
 def plot_player_times(round_number, moves_df):
     game_moves = moves_df[moves_df["Round"] == round_number].copy()
@@ -298,14 +303,12 @@ def plot_player_times(round_number, moves_df):
     game_moves["Time (formatted)"] = game_moves["Time (seconds)"].apply(
         lambda x: str(timedelta(seconds=x))
     )
+    game_moves["Jugador"] = game_moves["Color"].replace({"White": "Blancas", "Black": "Negras"})
 
     time_interval = 1200
     max_time = game_moves["Time (seconds)"].max()
-    
     tick_vals = list(range(0, int(max_time) + 1, time_interval))
     tick_labels = [str(timedelta(seconds=t)) for t in tick_vals]
-    
-    game_moves["Jugador"] = game_moves["Color"].replace({"White": "Blancas", "Black": "Negras"})
 
     fig = px.line(
         game_moves,
@@ -313,21 +316,20 @@ def plot_player_times(round_number, moves_df):
         y="Time (seconds)",
         color="Color",
         color_discrete_map=color_map,
-        markers=True,
-        labels={"Time (formatted)": "Tiempo", "Time (seconds)": "Tiempo restante (HH:MM:ss)", 
-                "Move Number": "Número de Jugada", "Color": "Jugador"},
-        hover_data={
-            "Time (seconds)": False,
-            "Time (formatted)": True,
-            "Jugador": True
-        }
+        markers=True
     )
 
     fig.update_traces(
         marker=dict(
             size=8,
             line=dict(width=1, color="black")
-        )
+        ),
+        hovertemplate=(
+            "<b>Jugador:</b> %{customdata[0]}<br>"
+            "<b>Jugada:</b> %{x}<br>"
+            "<b>Tiempo restante:</b> %{customdata[1]}<extra></extra>"
+        ),
+        customdata=game_moves[["Jugador", "Time (formatted)"]].values
     )
 
     fig.update_layout(
@@ -374,6 +376,7 @@ def time_vs_eval_change_single_game(moves_df, round_number, num_ticks=10):
 
     tick_values = np.linspace(game_moves["Tiempo Diferencia Abs"].min(), game_moves["Tiempo Diferencia Abs"].max(), num_ticks)
     tick_labels = [format_time(tick) for tick in tick_values]
+    
 
     fig = px.scatter(
         game_moves,
@@ -395,7 +398,7 @@ def time_vs_eval_change_single_game(moves_df, round_number, num_ticks=10):
             tickmode="array",
             tickvals=tick_values.tolist(),
             ticktext=tick_labels,
-            title="Tiempo Neto en la Jugada (mm:ss)"
+            title="Tiempo Empleado en la Jugada (mm:ss)"
         )
     )
 
@@ -403,12 +406,15 @@ def time_vs_eval_change_single_game(moves_df, round_number, num_ticks=10):
         marker=dict(
             size=8,
             line=dict(width=1, color="black")
-        )
+        ),
+        showlegend=False
     )
 
     fig.add_hline(y=0, line_dash="dash", line_color="black")
 
     return fig
+
+
 
 def elo_vs_result(details_df):
     details_df_clean = details_df.dropna(subset=["Result"])
