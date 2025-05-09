@@ -1,29 +1,40 @@
 # ChessTournamentAnalysis
-## moves.csv
-- round PK
-- move number (Int32)
-- move
-- color
-- evaluation (double)
-- time
-- time (seconds) (Int32)
 
-## details.csv
-- round PK
-- event
-- white FK FideId
-- black FK FideId
-- ECO FK
-- result
+### moves.csv
+| Campo           | Tipo         | Descripción                          |
+|-----------------|--------------|--------------------------------------|
+| round           | PK           | Ronda de la partida         |
+| move number     | Int32        | Número de movimiento                 |
+| move            | Texto        | Notación del movimiento              |
+| color           | Texto        | Color del jugador que mueve          |
+| evaluation      | Double       | Evaluación del motor                 |
+| time            | Texto        | Tiempo en formato original           |
+| time (seconds)  | Int32        | Tiempo en segundos                   |
 
-## players.csv
-- name
-- FideId PK
-- Elo (Int32)
+### details.csv
+| Campo           | Tipo         | Descripción                          |
+|-----------------|--------------|--------------------------------------|
+| round           | PK           | Ronda de la partida         |
+| event           | Texto        | Nombre del evento                    |
+| white           | FK FideId    | ID FIDE del jugador blanco           |
+| black           | FK FideId    | ID FIDE del jugador negro            |
+| ECO             | FK           | Código de apertura                   |
+| result          | Texto        | Resultado de la partida              |
 
-## openings.csv
-- ECO PK
-- name
+### players.csv
+| Campo   | Tipo     | Descripción                |
+|---------|----------|----------------------------|
+| name    | Texto    | Nombre del jugador         |
+| FideId  | PK       | ID FIDE del jugador        |
+| Elo     | Int32    | ELO del jugador            |
+
+### openings.csv
+| Campo   | Tipo     | Descripción                      |
+|---------|----------|----------------------------------|
+| ECO     | PK       | Código de apertura (ECO)         |
+| name    | Texto    | Nombre de la apertura            |
+
+
 
 ## Programas previos
 Es necesario tener descargado el motor de ajedrez [Stockfish](https://stockfishchess.org/download/).
