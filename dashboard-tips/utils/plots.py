@@ -334,13 +334,15 @@ def plot_player_times(round_number, moves_df):
 
     fig.update_layout(
         showlegend=False,
-        xaxis=dict(showgrid=True),
+        xaxis=dict(showgrid=True,
+                   title="Número de Jugada",),
         yaxis=dict(
             showgrid=True,
             tickmode="array",
             tickvals=tick_vals,
             ticktext=tick_labels,
-            ticks="outside"
+            ticks="outside",
+            title="Tiempo (segundos)"
         ),
         template="ggplot2"
     )
