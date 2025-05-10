@@ -70,7 +70,7 @@ Las colecciones utilizadas en la base de datos `ChessTournamentAnalysis`, junto 
 
 ---
 
-### Tournaments`
+### Tournaments
 Contiene el nombre del torneo y un identificador único asociado.
 
 | Campo        | Tipo   | Descripción                      |
@@ -79,7 +79,7 @@ Contiene el nombre del torneo y un identificador único asociado.
 
 ---
 
-### `Details`
+### Details
 Guarda la información principal de cada partida.
 
 | Campo   | Tipo        | Descripción                               |
@@ -95,7 +95,7 @@ Guarda la información principal de cada partida.
 
 ---
 
-### `Players`
+### Players
 Almacena información de los jugadores.
 
 | Campo   | Tipo   | Descripción                |
@@ -107,7 +107,7 @@ Almacena información de los jugadores.
 
 ---
 
-### `Openings`
+### Openings
 Contiene información sobre las aperturas utilizadas.
 
 | Campo   | Tipo   | Descripción                          |
@@ -117,7 +117,7 @@ Contiene información sobre las aperturas utilizadas.
 
 ---
 
-### `Moves`
+### Moves
 Incluye los movimientos realizados durante cada partida y sus evaluaciones.
 
 | Campo          | Tipo     | Descripción                                     |
@@ -151,4 +151,4 @@ Incluye los movimientos realizados durante cada partida y sus evaluaciones.
 
 ## Autores
 
-- Desarrollado por: **Luna Yue Hernández Guerra (la china)** y **Jorge Lorenzo Lorenzo (el morenito)**
+- Desarrollado por: **Luna Yue Hernández Guerra** y **Jorge Lorenzo Lorenzo**
