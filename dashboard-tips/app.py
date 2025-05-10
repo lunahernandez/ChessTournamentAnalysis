@@ -202,13 +202,16 @@ def server(input, output, session):
 
     @reactive.Calc
     def tournament_data():
-        req(input.selected_tournament())
-
-        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
-        if tournaments_df.empty or input.selected_tournament() not in tournaments_df["Name"].values:
+        selected = input.selected_tournament()
+        if not selected:
+            # Retornar dataframes vacíos para que los render.ui funcionen
             return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
-        tournament_id = tournaments_df[tournaments_df["Name"] == input.selected_tournament()]["_id"].values[0]
+        tournaments_df = pd.DataFrame(list(db["Tournaments"].find()))
+        if tournaments_df.empty or selected not in tournaments_df["Name"].values:
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
+        tournament_id = tournaments_df[tournaments_df["Name"] == selected]["_id"].values[0]
         return load_data_by_tournament(tournament_id)
 
 
@@ -440,7 +443,7 @@ def server(input, output, session):
     def black_player_result():
         details_df, _, _ = tournament_data()
         if details_df.empty:
-            return "No hay datos disponibles para este torneo."
+            return ""
 
         selected_round = str(input.selected_game()).strip()
 
@@ -462,7 +465,7 @@ def server(input, output, session):
     def white_player_result():
         details_df, _, _ = tournament_data()
         if details_df.empty:
-            return "No hay datos disponibles para este torneo."
+            return ""
 
         selected_round = str(input.selected_game()).strip()
 
