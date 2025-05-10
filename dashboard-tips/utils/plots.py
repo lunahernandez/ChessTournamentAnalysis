@@ -342,7 +342,7 @@ def plot_player_times(round_number, moves_df):
             tickvals=tick_vals,
             ticktext=tick_labels,
             ticks="outside",
-            title="Tiempo (segundos)"
+            title="Tiempo Restante (hh:mm:ss)"
         ),
         template="ggplot2"
     )
