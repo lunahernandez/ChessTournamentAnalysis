@@ -1,11 +1,11 @@
 # Chess Tournament Analysis
 
-Aplicación personal para la asignatura **Bases de Datos No Relacionales** de la Universidad de Las Palmas de Gran Canaria. Esta herramienta permite importar y analizar torneos de ajedrez desde Lichess, almacenarlos en MongoDB y visualizar múltiples estadísticas y evaluaciones mediante una interfaz web interactiva creada con **Shiny**.
+Aplicación personal para la asignatura **Bases de Datos No Relacionales** de la Universidad de Las Palmas de Gran Canaria. Esta herramienta permite importar y analizar torneos de ajedrez en formato PGN, almacenarlos en MongoDB y visualizar múltiples estadísticas y evaluaciones mediante una interfaz web interactiva creada con **Shiny**.
 
 ## Funcionalidades principales
 
 - Importación de torneos desde archivos `.pgn`.
-- Evaluación automática de jugadas usando el motor **Stockfish**.
+- Evaluación automática de jugadas usando el motor **Stockfish 17.1**.
 - Almacenamiento flexible de datos en **MongoDB**.
 - Análisis general, individual y por partida.
 - Visualización de estadísticas dinámicas con **Plotly**.
@@ -58,7 +58,7 @@ chess-tournament-analysis/
    docker-compose up --build
    ```
 
-3. Accedr a la aplicación web:
+3. Acceder a la aplicación web:
 
    ```
    http://localhost:5000
