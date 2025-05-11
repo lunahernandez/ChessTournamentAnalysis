@@ -1,4 +1,4 @@
-# Chess Tournament Analysis
+# AnaliC(h)e(ss)mos
 
 Aplicación personal para la asignatura **Bases de Datos No Relacionales** de la Universidad de Las Palmas de Gran Canaria. Esta herramienta permite importar y analizar torneos de ajedrez en formato PGN, almacenarlos en MongoDB y visualizar múltiples estadísticas y evaluaciones mediante una interfaz web interactiva creada con **Shiny**.
 
