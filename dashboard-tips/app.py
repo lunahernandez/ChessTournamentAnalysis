@@ -187,7 +187,7 @@ app_ui = ui.page_sidebar(
             )
         ),
         ui.include_css(app_dir / "styles.css"),
-        title="Chess Tournament Analysis | Cerrado IM Barcelona Junio 2024",
+        title="AnaliC(h)e(ss)mos | Cerrado IM Barcelona Junio 2024",
         fillable=True,
     )
 )
@@ -197,7 +197,7 @@ def server(input, output, session):
     @render.ui
     def tournament_title():
         selected = input.selected_tournament()
-        return ui.h1(f"Chess Tournament Analysis | {selected or 'Selecciona un torneo'}", style="text-align:left;")
+        return ui.h1(f"AnaliC(h)e(ss)mos | {selected or 'Selecciona un torneo'}", style="text-align:left;")
 
 
     @reactive.Calc
