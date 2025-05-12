@@ -292,8 +292,7 @@ def engine_evaluation(round_number, moves_df, show_colors=True):
     )
 
     return fig
-import plotly.express as px
-from datetime import timedelta
+
 
 def plot_player_times(round_number, moves_df):
     game_moves = moves_df[moves_df["Round"] == round_number].copy()
@@ -303,12 +302,14 @@ def plot_player_times(round_number, moves_df):
     game_moves["Time (formatted)"] = game_moves["Time (seconds)"].apply(
         lambda x: str(timedelta(seconds=x))
     )
-    game_moves["Jugador"] = game_moves["Color"].replace({"White": "Blancas", "Black": "Negras"})
 
     time_interval = 1200
     max_time = game_moves["Time (seconds)"].max()
+    
     tick_vals = list(range(0, int(max_time) + 1, time_interval))
     tick_labels = [str(timedelta(seconds=t)) for t in tick_vals]
+    
+    game_moves["Jugador"] = game_moves["Color"].replace({"White": "Blancas", "Black": "Negras"})
 
     fig = px.line(
         game_moves,
@@ -316,33 +317,32 @@ def plot_player_times(round_number, moves_df):
         y="Time (seconds)",
         color="Color",
         color_discrete_map=color_map,
-        markers=True
+        markers=True,
+        labels={"Time (formatted)": "Tiempo", "Time (seconds)": "Tiempo restante (HH:MM:ss)", 
+                "Move Number": "Número de Jugada", "Color": "Jugador"},
+        hover_data={
+            "Time (seconds)": False,
+            "Time (formatted)": True,
+            "Jugador": True
+        }
     )
 
     fig.update_traces(
         marker=dict(
             size=8,
             line=dict(width=1, color="black")
-        ),
-        hovertemplate=(
-            "<b>Jugador:</b> %{customdata[0]}<br>"
-            "<b>Jugada:</b> %{x}<br>"
-            "<b>Tiempo restante:</b> %{customdata[1]}<extra></extra>"
-        ),
-        customdata=game_moves[["Jugador", "Time (formatted)"]].values
+        )
     )
 
     fig.update_layout(
         showlegend=False,
-        xaxis=dict(showgrid=True,
-                   title="Número de Jugada",),
+        xaxis=dict(showgrid=True),
         yaxis=dict(
             showgrid=True,
             tickmode="array",
             tickvals=tick_vals,
             ticktext=tick_labels,
-            ticks="outside",
-            title="Tiempo Restante (hh:mm:ss)"
+            ticks="outside"
         ),
         template="ggplot2"
     )
